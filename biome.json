@@ -1,0 +1,37 @@
+{
+  "$schema": "https://biomejs.dev/schemas/2.4.12/schema.json",
+  "formatter": {
+    "enabled": true,
+    "indentStyle": "space",
+    "indentWidth": 2,
+    "lineWidth": 100
+  },
+  "javascript": {
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "asNeeded",
+      "trailingCommas": "all",
+      "arrowParentheses": "asNeeded"
+    }
+  },
+  "overrides": [
+    {
+      "includes": ["**/*.tsx"],
+      "javascript": { "formatter": { "lineWidth": 120, "semicolons": "always" } }
+    }
+  ],
+  "linter": {
+    "enabled": true,
+    "rules": {
+      "recommended": true,
+      "suspicious": { "noExplicitAny": "off", "noArrayIndexKey": "off" },
+      "style": { "noNonNullAssertion": "off", "useNodejsImportProtocol": "off" },
+      "correctness": { "noUnusedVariables": "warn", "noUnusedImports": "warn" },
+      "a11y": {},
+      "complexity": { "noForEach": "off" }
+    }
+  },
+  "files": {
+    "includes": ["src/**/*", "packages/@ant/ink/src/**/*", "scripts/**/*", "build.ts"]
+  }
+}

@@ -1,0 +1,6 @@
+[install]
+# Bun workspaces are auto-resolved.
+
+[run]
+# Ensure bun reads stdin in raw mode for our TUI.
+silent = false

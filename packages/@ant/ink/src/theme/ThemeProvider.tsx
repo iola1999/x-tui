@@ -1,4 +1,5 @@
-import { feature } from 'bun:bundle'
+// x-tui patch: stub out `feature` (bun:bundle is Bun-build-only).
+const feature = (_name: string): boolean => false
 import React, {
   createContext,
   useContext,
