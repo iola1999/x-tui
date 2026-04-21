@@ -60,11 +60,7 @@ Or run from source in dev mode:
 bun run dev
 ```
 
-## Usage
-
-Launch with `bun run dev` (or `./dist/cli.js` after building). You'll be dropped into the home timeline.
-
-### Keyboard reference
+## Keyboard reference
 
 Global:
 
@@ -136,101 +132,21 @@ Mouse:
 | `X_TUI_TWITTER_CMD=<path>`      | Override the `twitter` executable name/path.                         |
 | `X_TUI_REDUCED_MOTION=1`        | Replace the animated spinner with a static dot.                      |
 
-## Architecture
-
-```
-x-tui/
-├── packages/@ant/ink/         # Forked Ink (React 19 reconciler + Yoga)
-└── src/
-    ├── entrypoints/cli.tsx    # Bootstraps the render tree
-    ├── App.tsx                # KeybindingSetup → Theme → Shell
-    ├── components/
-    │   ├── FullscreenShell    # AlternateScreen + TabBar + Content + StatusBar
-    │   ├── TabBar / StatusBar / AuthGate
-    │   ├── TweetCard / TweetList / TweetText / Author / MediaThumbs
-    ├── screens/
-    │   ├── FeedScreen, SearchScreen, BookmarksScreen, UserProfileScreen
-    │   ├── TweetDetailScreen, ComposeScreen, ImageViewerScreen, HelpOverlay
-    ├── services/
-    │   ├── twitterCli.ts      # Bun.spawn wrappers for `twitter … --json`
-    │   ├── tweetActions.ts    # Optimistic like/retweet/bookmark/follow handlers
-    │   └── mediaCache.ts      # undici fetch + SHA1-keyed ~/.cache/x-tui/media
-    ├── state/
-    │   ├── store.ts           # Navigator stack + tabs + toasts + auth state
-    │   └── listCache.ts       # Stale-while-revalidate tweet-list cache
-    ├── utils/
-    │   ├── fullscreen.ts      # X_TUI_NO_FLICKER / mouse switches
-    │   ├── terminalCaps.ts    # Detect iTerm2 / Kitty / Sixel
-    │   ├── imageEncoders/     # halfblock / iterm2 / kitty protocols
-    │   └── time.ts            # Relative time + compact numbers
-    ├── keybindings/bindings.ts # vim-like binding blocks + help text
-    └── theme/twitterTheme.ts   # X brand blue, like pink, retweet green
-```
-
-### Rendering approach
-
-x-tui copies the same "fullscreen" rendering path Claude Code uses when `CLAUDE_CODE_NO_FLICKER=1` is set:
-
-- `AlternateScreen` wraps the root tree, entering DEC 1049 alt buffer and enabling SGR mouse tracking on mount, cleaning up on unmount (and via `signal-exit` for Ctrl+C).
-- The shell is a flex column: fixed-height `TabBar` + fixed-height `StatusBar` sandwiching a `flexGrow: 1` screen router.
-- Each list screen owns its own `ScrollBox` with viewport culling. Wheel events are forwarded explicitly via `useInput`.
-- Inline images use halfblock glyphs (`▀` with fg=upper-pixel / bg=lower-pixel) wrapped in `<RawAnsi>` so Yoga sees them as a fixed `W × ceil(H/2)` leaf — fully compatible with Ink's screen-diff renderer.
-
 ## Development
 
 ```bash
 bun run dev         # watch entrypoint
 bun run typecheck   # tsc --noEmit (strict)
-bun test            # unit tests (44 tests, 6 files)
+bun test            # unit tests
 bun run build       # production build → dist/
 bun run lint        # biome check
 ```
 
-Smoke scripts (skip the TUI, exercise the data layer):
-
-```bash
-bun run scripts/test-twitter.ts   # fetch feed + print 5 tweets
-bun run scripts/test-image.ts     # fetch one photo + print halfblock output
-```
-
-### Running with reduced capabilities
-
-```bash
-X_TUI_DISABLE_MOUSE=1 bun run dev            # keep alt-screen, no mouse
-X_TUI_NO_FLICKER=0 bun run dev               # scrollback mode (dev only)
-X_TUI_IMAGE_PROTOCOL=halfblock bun run dev   # force halfblock even on iTerm2
-X_TUI_REDUCED_MOTION=1 bun run dev           # static spinner dot
-```
+See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for the status of each feature and what's planned next.
 
 ### Releasing
 
-Releases are user-triggered. Two flavors — pick whichever you prefer:
-
-```bash
-# 1) Push a tag — the `release` workflow detects it automatically.
-git tag v0.1.0 && git push origin v0.1.0
-
-# 2) Or fire the workflow from the Actions tab (workflow_dispatch) and
-#    supply the tag name. The workflow creates the tag on the current
-#    commit, builds + tests, uploads source/dist tarballs as assets, and
-#    publishes a GitHub release with auto-generated notes.
-```
-
-See `.github/workflows/release.yml` for the exact pipeline.
-
-## Status
-
-- Phase 0 — workspace scaffold ✓
-- Phase 1 — `@anthropic/ink` vendoring ✓
-- Phase 2 — App shell (alt-screen, tabs, status bar) ✓
-- Phase 3 — data layer + home timeline ✓
-- Phase 4 — image system (halfblock inline + viewer) ✓
-- Phase 5 — tweet detail / user profile / bookmarks ✓
-- Phase 6 — search with filter chips ✓
-- Phase 7 — optimistic write actions + compose ✓
-- Phase 8 — auth gate, help overlay, caching polish ✓
-
-Planned but not yet wired: native iTerm2/Kitty/Sixel image rendering in the full-screen viewer (encoders are present in `src/utils/imageEncoders/`), fuzzy-picker for image attachments, persistent config.
+Releases are user-triggered. Push a tag (`git tag v0.1.0 && git push origin v0.1.0`) or fire the `release` workflow from the Actions tab with a tag name — either path builds, tests, uploads source/dist tarballs, and publishes a GitHub release. See [`.github/workflows/release.yml`](./.github/workflows/release.yml) for details.
 
 ## Acknowledgements
 
