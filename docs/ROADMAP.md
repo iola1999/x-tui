@@ -25,6 +25,9 @@ Last reviewed: 2026-04-22.
 | ErrorBoundary on the screen router          | ✅ done        |
 | Clean Ctrl+C / q exit                       | ✅ done        |
 | GitHub release workflow (manual trigger)    | ✅ done        |
+| Pending-chord hint in status bar            | ✅ done        |
+| OSC 8 hyperlink open handler                | ✅ done        |
+| `Shift+Y` copy tweet text + link            | ✅ done        |
 | Native iTerm2 / Kitty / Sixel viewer         | 🚧 encoders ok, viewer not wired |
 | Sixel encoder                                | ⬜ planned     |
 | Fuzzy picker for compose attachments        | ⬜ planned     |
@@ -32,8 +35,9 @@ Last reviewed: 2026-04-22.
 | Config persistence (`~/.config/x-tui`)      | ⬜ planned     |
 | Command mode (`:q`, `:refresh`, `:goto`)    | ⬜ planned     |
 | Debug log file                              | ⬜ planned     |
-| Chord-pending hint strip                    | ⬜ idea        |
 | Double-click to like                        | ⬜ idea        |
+| Viewport-aware spinner pause                | ⬜ idea        |
+| Network-weather indicator                   | ⬜ idea        |
 
 ## Short-term — the next meaningful bump
 
@@ -106,15 +110,9 @@ Pick one, land it end-to-end, then move on.
 These come from re-reading `claude-code` and from day-2 usage. Most are
 small but none are blocking; list here so they stop rotting in comments.
 
-- **Pending-chord strip**: when a chord like `g` is pending, show `g_`
-  in the status bar so the user knows the next key is part of a chord.
-  (claude-code does this via `setPendingChord` + a bar above the
-  input.)
 - **Double-click to like** on `TweetCard`: Twitter convention. Requires
   wiring `onDoubleClick` on ink's mouse pipeline (there is a
   multi-click hook upstream — see `onMultiClick` in ink).
-- **Hyperlink open**: register `instances.get(process.stdout).onHyperlinkClick`
-  so OSC 8 links in tweet bodies open in the system browser on click.
 - **Viewport-aware spinner pause**: if the spinner row scrolls out of
   view, it should stop ticking (claude-code's `useAnimationFrame`
   already does this — we just need to attach the ref from its return
@@ -126,8 +124,6 @@ small but none are blocking; list here so they stop rotting in comments.
   every 30s so a dead parent (SSH drop) isn't silently survived.
 - **Telemetry boundary**: a single `logForDebugging` helper so every
   error path is captured uniformly (complements the debug log above).
-- **Tweet copy-to-clipboard via OSC 52** already works for the URL;
-  add `Y` for "copy full text + URL".
 - **Infinite-scroll inertia**: a tiny acceleration curve for wheel
   movement so flicks feel right (1 → 3 → 6 rows per notch as the user
   keeps scrolling).
@@ -144,11 +140,13 @@ No coverage chasing. The current suite:
 - `listCache` — focus index is immutable (regression guard for the j/k
   silent-failure bug).
 - `store` — per-tab navigation stacks.
-- `StatusBar` helpers — every `Screen` variant has a label + hints.
+- `StatusBar` helpers — every `Screen` variant has a label + hints, and
+  the pending-chord formatter pins a handful of modifier/Shift edge cases.
 - `TweetText` — `@`/`#`/URL segmentation in English + CJK.
 - `halfblock` / `iterm2-kitty` — ANSI structure is stable.
 - `time` — relative time buckets.
 - `terminalCaps` — protocol detection priority.
+- `openUrl` — scheme allowlist for OSC 8 clicks (no `javascript:` etc.).
 
 Add a new regression test each time a bug fix changes behavior (not
 implementation); delete tests that only pin the current implementation.
