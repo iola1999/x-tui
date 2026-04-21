@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlternateScreen, Box, useKeybinding } from '@anthropic/ink'
-import { AuthGate } from './AuthGate.js'
+import { BootGate } from './BootGate.js'
+import { BootProbe } from './BootProbe.js'
 import { ErrorBoundary } from './ErrorBoundary.js'
 import { TabBar } from './TabBar.js'
 import { StatusBar } from './StatusBar.js'
@@ -52,13 +53,14 @@ export function FullscreenShell(): React.ReactNode {
   return (
     <AlternateScreen mouseTracking={isMouseTrackingEnabled()}>
       <Box flexDirection="column" width="100%" height="100%">
+        <BootProbe />
         <TabBar />
         <Box flexGrow={1} flexDirection="column" overflow="hidden">
-          <AuthGate>
+          <BootGate>
             <ErrorBoundary>
               <ScreenRouter />
             </ErrorBoundary>
-          </AuthGate>
+          </BootGate>
         </Box>
         <StatusBar />
       </Box>

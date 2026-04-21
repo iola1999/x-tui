@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { pickTweetDetail } from '../twitterCli.js'
+import { pickTweetDetail, TwitterCliError } from '../twitterCli.js'
 
 /**
  * Regression guard for the tweet-detail shape.
@@ -53,5 +53,54 @@ describe('pickTweetDetail', () => {
 
   it('object without tweet throws', () => {
     expect(() => pickTweetDetail({ replies: [t('y')] }, 'missing')).toThrow(/missing/)
+  })
+})
+
+/**
+ * Classification drives the onboarding gate. If the regexes drift or the
+ * ENOENT branch stops setting enoent=true, the user would see a generic
+ * "error" panel instead of the install/login instructions.
+ */
+describe('TwitterCliError.kind', () => {
+  function make(opts: { stderr?: string; stdout?: string; enoent?: boolean }): TwitterCliError {
+    return new TwitterCliError({
+      message: 'x',
+      exitCode: 1,
+      stderr: opts.stderr ?? '',
+      stdout: opts.stdout ?? '',
+      args: ['whoami', '--json'],
+      enoent: opts.enoent,
+    })
+  }
+
+  it('enoent wins regardless of stderr shape', () => {
+    expect(make({ enoent: true, stderr: 'unauthorized 401' }).kind).toBe('cliMissing')
+  })
+
+  it('recognizes several auth-missing stderr phrasings', () => {
+    for (const s of [
+      'Error: not logged in',
+      'unauthenticated',
+      'HTTP 401 Unauthorized',
+      'no session — run `twitter auth login`',
+      'Not Authenticated',
+    ]) {
+      expect(make({ stderr: s }).kind).toBe('notLoggedIn')
+    }
+  })
+
+  it('falls through to "other" for random failures', () => {
+    expect(make({ stderr: 'rate limit exceeded' }).kind).toBe('other')
+    expect(make({ stderr: '' }).kind).toBe('other')
+  })
+
+  it('also checks stdout for auth markers (some CLI versions print to stdout)', () => {
+    expect(make({ stdout: 'no session' }).kind).toBe('notLoggedIn')
+  })
+
+  it('keeps the legacy `authMissing` boolean in sync with kind', () => {
+    expect(make({ stderr: '401' }).authMissing).toBe(true)
+    expect(make({ enoent: true }).authMissing).toBe(false)
+    expect(make({ stderr: 'network down' }).authMissing).toBe(false)
   })
 })

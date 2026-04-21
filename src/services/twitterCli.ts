@@ -14,22 +14,48 @@ import type {
 
 const TWITTER_CMD = process.env.X_TUI_TWITTER_CMD ?? 'twitter'
 
+/** Classification used by the boot gate + toast surfaces to pick the
+ *  right onboarding message. `cliMissing` means the binary wasn't on
+ *  PATH; `notLoggedIn` means it ran but reported no session; `other` is
+ *  everything else (network, rate-limit, parse errors). */
+export type TwitterCliErrorKind = 'cliMissing' | 'notLoggedIn' | 'other'
+
+const AUTH_RE = /not (?:logged|authenticated)|unauthenti|401|no session/i
+
+function classifyKind(opts: {
+  enoent?: boolean
+  stderr: string
+  stdout: string
+}): TwitterCliErrorKind {
+  if (opts.enoent) return 'cliMissing'
+  if (AUTH_RE.test(opts.stderr) || AUTH_RE.test(opts.stdout)) return 'notLoggedIn'
+  return 'other'
+}
+
 export class TwitterCliError extends Error {
   readonly exitCode: number
   readonly stderr: string
   readonly stdout: string
   readonly args: string[]
+  readonly kind: TwitterCliErrorKind
+  /** Back-compat boolean for call sites that only care about auth. */
   readonly authMissing: boolean
-  constructor(opts: { message: string; exitCode: number; stderr: string; stdout: string; args: string[] }) {
+  constructor(opts: {
+    message: string
+    exitCode: number
+    stderr: string
+    stdout: string
+    args: string[]
+    enoent?: boolean
+  }) {
     super(opts.message)
     this.name = 'TwitterCliError'
     this.exitCode = opts.exitCode
     this.stderr = opts.stderr
     this.stdout = opts.stdout
     this.args = opts.args
-    this.authMissing =
-      /not (?:logged|authenticated)|unauthenti|401|no session/i.test(opts.stderr) ||
-      /not (?:logged|authenticated)|no session/i.test(opts.stdout)
+    this.kind = classifyKind(opts)
+    this.authMissing = this.kind === 'notLoggedIn'
   }
 }
 
@@ -62,13 +88,30 @@ export async function runTwitter<T>(
   opts: { timeout?: number } = {},
 ): Promise<T> {
   const finalArgs = args.includes('--json') ? args : [...args, '--json']
-  const proc = Bun.spawn({
-    cmd: [TWITTER_CMD, ...finalArgs],
-    stdin: 'ignore',
-    stdout: 'pipe',
-    stderr: 'pipe',
-    env: { ...process.env, NO_COLOR: '1' },
-  })
+  let proc: ReturnType<typeof Bun.spawn>
+  try {
+    proc = Bun.spawn({
+      cmd: [TWITTER_CMD, ...finalArgs],
+      stdin: 'ignore',
+      stdout: 'pipe',
+      stderr: 'pipe',
+      env: { ...process.env, NO_COLOR: '1' },
+    })
+  } catch (err) {
+    // Bun.spawn throws synchronously when the binary can't be resolved
+    // (ENOENT / EACCES). That's the "user never installed the CLI" case —
+    // surface it with enoent: true so the boot gate shows install hints
+    // instead of a generic "something broke" message.
+    const msg = (err as Error).message ?? String(err)
+    throw new TwitterCliError({
+      message: `cannot execute ${TWITTER_CMD}: ${msg}`,
+      exitCode: -1,
+      stderr: msg,
+      stdout: '',
+      args: finalArgs,
+      enoent: true,
+    })
+  }
 
   let killTimer: ReturnType<typeof setTimeout> | undefined
   if (opts.timeout) {

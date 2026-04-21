@@ -28,13 +28,18 @@ export type ComposeMode =
 export type ToastKind = 'info' | 'success' | 'error'
 export type Toast = { id: number; kind: ToastKind; text: string; expiresAt: number }
 
+export type BootErrorKind = 'cliMissing' | 'notLoggedIn' | 'other'
+export type BootError = { kind: BootErrorKind; message: string }
+
 export type AppState = {
   activeTab: TabName
   /** Screen stack per tab — top of stack is rendered. */
   stacks: Record<TabName, Screen[]>
   toasts: Toast[]
-  /** Set when the twitter CLI reports auth missing — blocks interaction. */
-  authError: string | null
+  /** Set by the boot probe (or any screen that hits a fatal CLI failure).
+   *  When non-null the BootGate takes over the content area until the user
+   *  re-runs the probe (Ctrl+R). */
+  bootError: BootError | null
 }
 
 const ROOT_SCREEN: Record<TabName, Screen> = {
@@ -53,7 +58,7 @@ let state: AppState = {
     profile: [ROOT_SCREEN.profile],
   },
   toasts: [],
-  authError: null,
+  bootError: null,
 }
 
 const listeners = new Set<() => void>()
@@ -135,6 +140,6 @@ export function dismissToast(id: number): void {
   setState(s => ({ toasts: s.toasts.filter(t => t.id !== id) }))
 }
 
-export function setAuthError(msg: string | null): void {
-  setState({ authError: msg })
+export function setBootError(err: BootError | null): void {
+  setState({ bootError: err })
 }

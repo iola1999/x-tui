@@ -8,7 +8,7 @@ import {
   setFocusedIndex,
   useListData,
 } from '../state/listCache.js'
-import { setAuthError } from '../state/store.js'
+import { setBootError } from '../state/store.js'
 import { TW_DIM } from '../theme/twitterTheme.js'
 import {
   makeTweetActions,
@@ -29,11 +29,12 @@ export function FeedScreen(): React.ReactNode {
 
   const tweets = entry?.tweets ?? []
 
-  // Surface auth errors to the shell once, so the rest of the list renders
-  // whatever partial state the cache holds.
+  // If a mid-session auth expiry surfaces via the list fetcher, escalate to
+  // the BootGate by setting a structured bootError — BootProbe will re-run
+  // whoami on the next Ctrl+R and clear it.
   React.useEffect(() => {
     if (error && /not (?:logged|authenticated)|401/i.test(error)) {
-      setAuthError('Not logged in. Run `twitter auth login` in another shell.')
+      setBootError({ kind: 'notLoggedIn', message: error })
     }
   }, [error])
 
