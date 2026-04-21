@@ -1,5 +1,5 @@
 import React from 'react'
-import { Box, Text } from '@anthropic/ink'
+import { Box, Text, useKeybindingContext } from '@anthropic/ink'
 import { currentScreen, type Screen, useStore } from '../state/store.js'
 import { TW_BLUE, TW_DIM, TW_SUBTLE } from '../theme/twitterTheme.js'
 
@@ -52,11 +52,43 @@ function toastIcon(kind: 'info' | 'success' | 'error'): string {
   return kind === 'success' ? '✓' : kind === 'error' ? '✗' : 'ℹ'
 }
 
+type Keystroke = {
+  key: string
+  ctrl: boolean
+  alt: boolean
+  shift: boolean
+  meta: boolean
+  super: boolean
+}
+
+/** Render a chord-in-progress like `g`, `Ctrl+X`, or `Space` — so users who
+ *  tapped the first key of a `gg`/`gi` chord know we saw them and are
+ *  waiting for the next key. The trailing `…` makes "waiting" visible. */
+export function formatPendingChord(chord: Keystroke[] | null): string | null {
+  if (!chord || chord.length === 0) return null
+  return (
+    chord
+      .map(k => {
+        const mods: string[] = []
+        if (k.ctrl) mods.push('Ctrl')
+        if (k.alt) mods.push('Alt')
+        if (k.meta) mods.push('Meta')
+        if (k.shift && k.key.length > 1) mods.push('Shift')
+        const label = k.key === ' ' ? 'Space' : k.key
+        return mods.length ? `${mods.join('+')}+${label}` : label
+      })
+      .join(' ') + '…'
+  )
+}
+
 export function StatusBar(): React.ReactNode {
   const toast = useStore(s => s.toasts.at(-1) ?? null)
   // Re-render on screen changes so hints follow the top of the stack.
   useStore(s => s.stacks[s.activeTab].length)
   useStore(s => s.activeTab)
+
+  const { pendingChord } = useKeybindingContext()
+  const chordHint = formatPendingChord(pendingChord)
 
   const screen = currentScreen()
   const label = screenLabelFor(screen)
@@ -86,7 +118,10 @@ export function StatusBar(): React.ReactNode {
           </Text>
         )}
       </Box>
-      <Text color={TW_DIM}>{hints}</Text>
+      <Box flexDirection="row" gap={1}>
+        {chordHint && <Text color={TW_BLUE}>{chordHint}</Text>}
+        <Text color={TW_DIM}>{hints}</Text>
+      </Box>
     </Box>
   )
 }
