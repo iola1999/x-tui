@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 import React from 'react'
 import { wrappedRender as render } from '@anthropic/ink'
+import { onExit } from 'signal-exit'
 import { App } from '../App.js'
 import { isFullscreenActive } from '../utils/fullscreen.js'
 
@@ -20,7 +21,17 @@ import { isFullscreenActive } from '../utils/fullscreen.js'
  * if something inside the React tree swallows the quit keybinding, an OS
  * signal still takes us down cleanly (ink's internal `onExit(this.unmount)`
  * will run during the `process.exit` pass to flush terminal resets).
+ *
+ * signal-exit pin: short-lived signal-exit v4 subscribers (e.g. any Ink
+ * instance that unmounts) can trigger v4's `unload()` when their unsubscribe
+ * runs. Under Bun, `process.removeListener(sig, fn)` resets the kernel
+ * sigaction — so SIGTERM would fall through to default (terminate) and our
+ * handlers would never run. We register a no-op `onExit` here and never
+ * unsubscribe, keeping v4's emitter count > 0 and its handlers pinned.
+ * (Same trick and same reasoning as claude-code's gracefulShutdown.)
  */
+onExit(() => {})
+
 async function main(): Promise<void> {
   if (!isFullscreenActive()) {
     console.log(
@@ -41,8 +52,8 @@ async function main(): Promise<void> {
     process.exit(code)
   }
 
-  process.once('SIGTERM', () => shutdown(0))
-  process.once('SIGHUP', () => shutdown(0))
+  process.once('SIGTERM', () => shutdown(143))
+  process.once('SIGHUP', () => shutdown(129))
   // SIGINT: ink's own handler covers the in-app path, but if the ink key
   // pipeline is stalled (e.g. mid-render), the OS signal still wins.
   process.once('SIGINT', () => shutdown(130))
@@ -65,4 +76,5 @@ async function main(): Promise<void> {
 }
 
 void main()
+
 
