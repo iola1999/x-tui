@@ -1,10 +1,9 @@
 import React from 'react'
 import { Box, Text } from '@anthropic/ink'
-import { currentScreen, useStore } from '../state/store.js'
+import { currentScreen, type Screen, useStore } from '../state/store.js'
 import { TW_BLUE, TW_DIM, TW_SUBTLE } from '../theme/twitterTheme.js'
 
-function screenLabel(): string {
-  const s = currentScreen()
+export function screenLabelFor(s: Screen): string {
   switch (s.kind) {
     case 'feed':
       return 'Home timeline'
@@ -29,11 +28,39 @@ function screenLabel(): string {
   }
 }
 
-const KEY_HINTS = 'j/k move · ⏎ open · / search · ? help · q quit'
+/**
+ * Per-screen hint strings so the status bar reflects the keybinding context
+ * that's actually active. Keep each line short enough not to push past 80
+ * columns; the tab label + toast share the left half.
+ */
+export function screenHintsFor(s: Screen): string {
+  switch (s.kind) {
+    case 'compose':
+      return '⏎ send · Ctrl+I image · Esc cancel'
+    case 'imageViewer':
+      return 'h/← prev · l/→ next · Esc close'
+    case 'help':
+      return 'Esc close'
+    case 'tweet':
+      return 'j/k move · ⏎ open · r reply · Esc back'
+    default:
+      return 'j/k move · ⏎ open · / search · ? help · q quit'
+  }
+}
+
+function toastIcon(kind: 'info' | 'success' | 'error'): string {
+  return kind === 'success' ? '✓' : kind === 'error' ? '✗' : 'ℹ'
+}
 
 export function StatusBar(): React.ReactNode {
   const toast = useStore(s => s.toasts.at(-1) ?? null)
-  const label = screenLabel()
+  // Re-render on screen changes so hints follow the top of the stack.
+  useStore(s => s.stacks[s.activeTab].length)
+  useStore(s => s.activeTab)
+
+  const screen = currentScreen()
+  const label = screenLabelFor(screen)
+  const hints = screenHintsFor(screen)
 
   return (
     <Box
@@ -55,11 +82,11 @@ export function StatusBar(): React.ReactNode {
           <Text
             color={toast.kind === 'error' ? 'error' : toast.kind === 'success' ? 'success' : TW_BLUE}
           >
-            · {toast.text}
+            · {toastIcon(toast.kind)} {toast.text}
           </Text>
         )}
       </Box>
-      <Text color={TW_DIM}>{KEY_HINTS}</Text>
+      <Text color={TW_DIM}>{hints}</Text>
     </Box>
   )
 }

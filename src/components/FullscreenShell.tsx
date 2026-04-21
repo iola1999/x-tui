@@ -1,6 +1,7 @@
 import React from 'react'
 import { AlternateScreen, Box, useKeybinding } from '@anthropic/ink'
 import { AuthGate } from './AuthGate.js'
+import { ErrorBoundary } from './ErrorBoundary.js'
 import { TabBar } from './TabBar.js'
 import { StatusBar } from './StatusBar.js'
 import { FeedScreen } from '../screens/FeedScreen.js'
@@ -54,7 +55,9 @@ export function FullscreenShell(): React.ReactNode {
         <TabBar />
         <Box flexGrow={1} flexDirection="column" overflow="hidden">
           <AuthGate>
-            <ScreenRouter />
+            <ErrorBoundary>
+              <ScreenRouter />
+            </ErrorBoundary>
           </AuthGate>
         </Box>
         <StatusBar />
