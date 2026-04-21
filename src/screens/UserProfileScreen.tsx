@@ -3,6 +3,7 @@ import { Box, Text, useKeybinding } from '@anthropic/ink'
 import { userPosts, userProfile, whoami } from '../services/twitterCli.js'
 import type { UserResponse } from '../types/tweet.js'
 import { TweetList } from '../components/TweetList.js'
+import { LoadingLine, Spinner } from '../components/Spinner.js'
 import {
   mutateTweetEverywhere,
   setFocusedIndex,
@@ -159,14 +160,17 @@ export function UserProfileScreen({ handle }: { handle?: string }): React.ReactN
         <UserHeader user={user} />
       ) : (
         <Box padding={2}>
-          <Text color={TW_DIM}>Loading profile…</Text>
+          <LoadingLine label="Loading profile" />
         </Box>
       )}
-      <Box paddingX={2} paddingY={1}>
-        <Text color={TW_DIM}>
-          Latest tweets · {tweets.length}
-          {loading ? ' · loading…' : ''}
-        </Text>
+      <Box paddingX={2} paddingY={1} flexDirection="row" gap={1}>
+        <Text color={TW_DIM}>Latest tweets · {tweets.length}</Text>
+        {loading ? (
+          <>
+            <Spinner />
+            <Text color={TW_DIM}>refreshing</Text>
+          </>
+        ) : null}
       </Box>
       <TweetList
         tweets={tweets}

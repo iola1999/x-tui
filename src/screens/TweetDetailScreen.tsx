@@ -4,6 +4,7 @@ import { tweetDetail } from '../services/twitterCli.js'
 import type { Tweet } from '../types/tweet.js'
 import { TweetCard } from '../components/TweetCard.js'
 import { TweetList } from '../components/TweetList.js'
+import { LoadingLine, Spinner } from '../components/Spinner.js'
 import { mutateTweetEverywhere, setFocusedIndex } from '../state/listCache.js'
 import { TW_BLUE, TW_DIM } from '../theme/twitterTheme.js'
 import {
@@ -131,14 +132,15 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
   if (loading && !entry) {
     return (
       <Box padding={2}>
-        <Text color={TW_DIM}>Loading tweet {id}…</Text>
+        <LoadingLine label={`Loading tweet ${id}`} />
       </Box>
     )
   }
   if (error && !entry) {
     return (
-      <Box padding={2}>
+      <Box padding={2} flexDirection="column" gap={1}>
         <Text color="error">Error: {error}</Text>
+        <Text color={TW_DIM}>Press Ctrl+R to retry or Esc to go back.</Text>
       </Box>
     )
   }
@@ -154,11 +156,14 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
       <Box flexShrink={0} borderStyle="single" borderTop={false} borderLeft={false} borderRight={false}>
         <TweetCard tweet={entry.tweet} isFocused={false} onOpen={undefined} onProfile={actions.onProfile} />
       </Box>
-      <Box paddingX={2} paddingY={1}>
-        <Text color={TW_DIM}>
-          Replies · {replies.length}
-          {loading ? ' · refreshing…' : ''}
-        </Text>
+      <Box paddingX={2} paddingY={1} flexDirection="row" gap={1}>
+        <Text color={TW_DIM}>Replies · {replies.length}</Text>
+        {loading ? (
+          <>
+            <Spinner />
+            <Text color={TW_DIM}>refreshing</Text>
+          </>
+        ) : null}
       </Box>
       <TweetList
         tweets={replies}

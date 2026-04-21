@@ -3,6 +3,7 @@ import { Box, RawAnsi, Text, useKeybinding, useRegisterKeybindingContext, useTer
 import { pop } from '../state/store.js'
 import { getMediaBuffer } from '../services/mediaCache.js'
 import { renderHalfblock } from '../utils/imageEncoders/halfblock.js'
+import { LoadingLine } from '../components/Spinner.js'
 import { TW_BLUE, TW_DIM } from '../theme/twitterTheme.js'
 
 type Props = {
@@ -76,7 +77,7 @@ export function ImageViewerScreen({ urls, index, tweetId }: Props): React.ReactN
         {error ? (
           <Text color="error">Error: {error}</Text>
         ) : !rendered ? (
-          <Text color={TW_DIM}>Loading {url}…</Text>
+          <LoadingLine label={url ? `Loading ${url}` : 'Loading image'} />
         ) : (
           <Box flexDirection="column" flexShrink={0}>
             <RawAnsi lines={rendered.lines} width={rendered.width} />

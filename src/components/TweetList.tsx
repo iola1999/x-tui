@@ -11,6 +11,7 @@ import {
 } from '@anthropic/ink'
 import type { Tweet } from '../types/tweet.js'
 import { TweetCard } from './TweetCard.js'
+import { LoadingLine, Spinner } from './Spinner.js'
 import { TW_DIM } from '../theme/twitterTheme.js'
 
 type Props = {
@@ -152,9 +153,17 @@ export function TweetList({
 
   if (error && tweets.length === 0) {
     return (
-      <Box flexDirection="column" padding={2}>
+      <Box flexDirection="column" padding={2} gap={1}>
         <Text color="error">Error: {error}</Text>
         <Text color={TW_DIM}>Press Ctrl+R to retry.</Text>
+      </Box>
+    )
+  }
+
+  if (loading && tweets.length === 0) {
+    return (
+      <Box padding={2}>
+        <LoadingLine label="Loading timeline" />
       </Box>
     )
   }
@@ -192,8 +201,9 @@ export function TweetList({
         )
       })}
       {loading && (
-        <Box padding={1}>
-          <Text color={TW_DIM}>Loading…</Text>
+        <Box padding={1} flexDirection="row" gap={1}>
+          <Spinner />
+          <Text color={TW_DIM}>Loading more…</Text>
         </Box>
       )}
     </ScrollBox>

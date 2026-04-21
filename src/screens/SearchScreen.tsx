@@ -8,6 +8,7 @@ import {
 } from '@anthropic/ink'
 import { search as runSearch } from '../services/twitterCli.js'
 import { TweetList } from '../components/TweetList.js'
+import { Spinner } from '../components/Spinner.js'
 import {
   mutateTweetEverywhere,
   setFocusedIndex,
@@ -185,12 +186,20 @@ export function SearchScreen(): React.ReactNode {
           <Text color={TW_DIM}>· Enter/Esc leaves input · / re-enters</Text>
         </Box>
       </Box>
-      <Box paddingX={2} paddingY={1}>
-        <Text color={TW_DIM}>
-          {listKey
-            ? `${tweets.length} results${loading ? ' · loading…' : ''}`
-            : 'Type a query then Enter.'}
-        </Text>
+      <Box paddingX={2} paddingY={1} flexDirection="row" gap={1}>
+        {listKey ? (
+          <>
+            <Text color={TW_DIM}>{tweets.length} results</Text>
+            {loading ? (
+              <>
+                <Spinner />
+                <Text color={TW_DIM}>searching</Text>
+              </>
+            ) : null}
+          </>
+        ) : (
+          <Text color={TW_DIM}>Type a query then Enter.</Text>
+        )}
       </Box>
       {listKey ? (
         <TweetList

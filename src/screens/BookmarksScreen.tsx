@@ -2,6 +2,7 @@ import React, { useCallback } from 'react'
 import { Box, Text, useKeybinding } from '@anthropic/ink'
 import { bookmarks } from '../services/twitterCli.js'
 import { TweetList } from '../components/TweetList.js'
+import { Spinner } from '../components/Spinner.js'
 import {
   mutateTweetEverywhere,
   setFocusedIndex,
@@ -71,11 +72,16 @@ export function BookmarksScreen(): React.ReactNode {
 
   return (
     <Box flexDirection="column" flexGrow={1}>
-      <Box paddingX={2} paddingTop={1} paddingBottom={1}>
-        <Text color={TW_DIM}>
-          Bookmarks · {tweets.length}
-          {loading ? ' · loading…' : cachedAge !== null ? ` · ${cachedAge}s ago` : ''}
-        </Text>
+      <Box paddingX={2} paddingTop={1} paddingBottom={1} flexDirection="row" gap={1}>
+        <Text color={TW_DIM}>Bookmarks · {tweets.length}</Text>
+        {loading ? (
+          <>
+            <Spinner />
+            <Text color={TW_DIM}>refreshing</Text>
+          </>
+        ) : cachedAge !== null ? (
+          <Text color={TW_DIM}>· {cachedAge}s ago</Text>
+        ) : null}
       </Box>
       <TweetList
         tweets={tweets}
