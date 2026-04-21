@@ -1,5 +1,5 @@
 import React from 'react'
-import { AlternateScreen, Box, ScrollBox, useKeybinding } from '@anthropic/ink'
+import { AlternateScreen, Box, useKeybinding } from '@anthropic/ink'
 import { TabBar } from './TabBar.js'
 import { StatusBar } from './StatusBar.js'
 import { FeedScreen } from '../screens/FeedScreen.js'
@@ -36,13 +36,10 @@ function ScreenRouter(): React.ReactNode {
 }
 
 /**
- * Root layout used inside AlternateScreen. A flex column with:
+ * Root layout used inside AlternateScreen. Column:
  *   1. TabBar (top, fixed)
- *   2. ScrollBox (grows, holds the active screen)
+ *   2. Active screen (grows; each screen owns its own ScrollBox if it needs one)
  *   3. StatusBar (bottom, fixed)
- *
- * Mirrors claude-code's FullscreenLayout structure but omits the chat-only
- * bits (sticky prompt header, unseen-messages pill, bottom-float).
  */
 export function FullscreenShell(): React.ReactNode {
   useKeybinding('app:help', () => push({ kind: 'help' }), { context: 'Global' })
@@ -51,9 +48,9 @@ export function FullscreenShell(): React.ReactNode {
     <AlternateScreen mouseTracking={isMouseTrackingEnabled()}>
       <Box flexDirection="column" width="100%" height="100%">
         <TabBar />
-        <ScrollBox flexGrow={1} flexDirection="column" stickyScroll={false}>
+        <Box flexGrow={1} flexDirection="column" overflow="hidden">
           <ScreenRouter />
-        </ScrollBox>
+        </Box>
         <StatusBar />
       </Box>
     </AlternateScreen>
