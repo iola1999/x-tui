@@ -125,7 +125,10 @@ export function showToast(kind: ToastKind, text: string): void {
   const id = _toastId++
   const expiresAt = Date.now() + TOAST_TTL_MS
   setState(s => ({ toasts: [...s.toasts, { id, kind, text, expiresAt }] }))
-  setTimeout(() => dismissToast(id), TOAST_TTL_MS + 50)
+  // .unref() so an idle toast never holds the event loop open on app quit —
+  // without it, a fresh toast would delay `process.exit` by up to TOAST_TTL_MS.
+  const timer = setTimeout(() => dismissToast(id), TOAST_TTL_MS + 50)
+  timer.unref?.()
 }
 
 export function dismissToast(id: number): void {

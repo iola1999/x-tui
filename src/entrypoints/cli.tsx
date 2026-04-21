@@ -2,35 +2,28 @@
 import React from 'react'
 import { wrappedRender as render } from '@anthropic/ink'
 import { onExit } from 'signal-exit'
+import { appendFileSync } from 'node:fs'
 import { App } from '../App.js'
 import { isFullscreenActive } from '../utils/fullscreen.js'
 
-/**
- * Why `process.exit(0)` after `waitUntilExit()`:
- *
- * Ink's unmount path writes EXIT_ALT_SCREEN, DISABLE_MOUSE_TRACKING,
- * SHOW_CURSOR etc. synchronously via `writeSync(1, …)`, so the terminal is
- * visually restored. But the Bun event loop can stay alive on open references
- * the user never sees: stdin raw-mode ref, undici connect pools,
- * `setTimeout(kill, timeout)` timers inside outstanding `runTwitter` calls,
- * signal-exit listeners, etc. Without an explicit exit we come back to the
- * shell but the `bun` process never returns, which is exactly what the user
- * reported as "stuck on the bun screen after pressing q / Ctrl+C".
- *
- * We keep the SIGINT / SIGTERM / SIGHUP handlers as a belt-and-suspenders:
- * if something inside the React tree swallows the quit keybinding, an OS
- * signal still takes us down cleanly (ink's internal `onExit(this.unmount)`
- * will run during the `process.exit` pass to flush terminal resets).
- *
- * signal-exit pin: short-lived signal-exit v4 subscribers (e.g. any Ink
- * instance that unmounts) can trigger v4's `unload()` when their unsubscribe
- * runs. Under Bun, `process.removeListener(sig, fn)` resets the kernel
- * sigaction — so SIGTERM would fall through to default (terminate) and our
- * handlers would never run. We register a no-op `onExit` here and never
- * unsubscribe, keeping v4's emitter count > 0 and its handlers pinned.
- * (Same trick and same reasoning as claude-code's gracefulShutdown.)
- */
-onExit(() => {})
+const DEBUG_SHUTDOWN = process.env.X_TUI_DEBUG_SHUTDOWN === '1'
+const shutdownT0 = Date.now()
+function shutdownLog(msg: string): void {
+  if (!DEBUG_SHUTDOWN) return
+  try {
+    appendFileSync(
+      '/tmp/x-tui-shutdown.log',
+      `+${Date.now() - shutdownT0}ms ${msg}\n`,
+    )
+  } catch {
+    // best-effort
+  }
+}
+shutdownLog('module-loaded')
+
+onExit(() => {
+  shutdownLog('signal-exit-pin-fired')
+})
 
 async function main(): Promise<void> {
   if (!isFullscreenActive()) {
@@ -43,38 +36,51 @@ async function main(): Promise<void> {
   }
 
   let instance: Awaited<ReturnType<typeof render>> | null = null
-  const shutdown = (code: number): void => {
+  let shuttingDown = false
+  const shutdown = (code: number, reason: string): void => {
+    if (shuttingDown) return
+    shuttingDown = true
+    shutdownLog(`shutdown-start reason=${reason} code=${code}`)
     try {
       instance?.unmount()
-    } catch {
-      // best-effort; ink's signal-exit hook will still run
+      shutdownLog('shutdown-after-unmount')
+    } catch (e) {
+      shutdownLog(`shutdown-unmount-threw: ${(e as Error).message}`)
     }
+    shutdownLog('shutdown-calling-process-exit')
+    // Direct process.exit — no microtask detour. Ink's unmount already ran
+    // writeSync() for all terminal resets (EXIT_ALT_SCREEN, SHOW_CURSOR,
+    // DISABLE_MOUSE_TRACKING, …) synchronously; anything else on the event
+    // loop (undici pools, spawn stdout readers, toast timers) only delays
+    // the exit.
     process.exit(code)
   }
 
-  process.once('SIGTERM', () => shutdown(143))
-  process.once('SIGHUP', () => shutdown(129))
-  // SIGINT: ink's own handler covers the in-app path, but if the ink key
-  // pipeline is stalled (e.g. mid-render), the OS signal still wins.
-  process.once('SIGINT', () => shutdown(130))
+  process.once('SIGTERM', () => shutdown(143, 'SIGTERM'))
+  process.once('SIGHUP', () => shutdown(129, 'SIGHUP'))
+  process.once('SIGINT', () => shutdown(130, 'SIGINT'))
   process.on('uncaughtException', err => {
     // eslint-disable-next-line no-console
     console.error('\nx-tui crashed:', err)
-    shutdown(1)
+    shutdown(1, 'uncaughtException')
   })
 
-  instance = await render(<App onExit={() => instance?.unmount()} />, {
-    exitOnCtrlC: false, // we handle Ctrl+C via the app:quit keybinding
-    patchConsole: true,
-  })
+  shutdownLog('render-start')
+  instance = await render(
+    <App onExit={() => shutdown(0, 'app:quit')} />,
+    {
+      exitOnCtrlC: false, // we handle Ctrl+C via the app:quit keybinding
+      patchConsole: true,
+    },
+  )
+  shutdownLog('render-done')
 
   await instance.waitUntilExit()
-  // waitUntilExit resolves after ink's synchronous terminal-mode resets;
-  // force-exit so lingering event-loop refs (undici pools, raw stdin) don't
-  // strand us at the post-render bun prompt.
+  shutdownLog('waitUntilExit-resolved')
   process.exit(0)
 }
 
 void main()
+
 
 
