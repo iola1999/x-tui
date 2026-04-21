@@ -134,6 +134,7 @@ Mouse:
 | `X_TUI_ASSUME_SIXEL=1`          | Hint that the current terminal supports sixel.                       |
 | `X_TUI_CACHE_DIR=<path>`        | Override media cache dir (default `~/.cache/x-tui/media`).          |
 | `X_TUI_TWITTER_CMD=<path>`      | Override the `twitter` executable name/path.                         |
+| `X_TUI_REDUCED_MOTION=1`        | Replace the animated spinner with a static dot.                      |
 
 ## Architecture
 
@@ -198,7 +199,24 @@ bun run scripts/test-image.ts     # fetch one photo + print halfblock output
 X_TUI_DISABLE_MOUSE=1 bun run dev            # keep alt-screen, no mouse
 X_TUI_NO_FLICKER=0 bun run dev               # scrollback mode (dev only)
 X_TUI_IMAGE_PROTOCOL=halfblock bun run dev   # force halfblock even on iTerm2
+X_TUI_REDUCED_MOTION=1 bun run dev           # static spinner dot
 ```
+
+### Releasing
+
+Releases are user-triggered. Two flavors — pick whichever you prefer:
+
+```bash
+# 1) Push a tag — the `release` workflow detects it automatically.
+git tag v0.1.0 && git push origin v0.1.0
+
+# 2) Or fire the workflow from the Actions tab (workflow_dispatch) and
+#    supply the tag name. The workflow creates the tag on the current
+#    commit, builds + tests, uploads source/dist tarballs as assets, and
+#    publishes a GitHub release with auto-generated notes.
+```
+
+See `.github/workflows/release.yml` for the exact pipeline.
 
 ## Status
 
