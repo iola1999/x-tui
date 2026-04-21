@@ -93,6 +93,17 @@ export function clearAllListCache(): void {
   for (const [k] of listeners) notify(k)
 }
 
+/** Test-only: inject an entry without going through the async hook path. */
+export function __seedForTest(key: string, tweets: Tweet[]): void {
+  cache.set(key, {
+    tweets,
+    fetchedAt: Date.now(),
+    focusedIndex: 0,
+    error: null,
+  })
+  notify(key)
+}
+
 /**
  * React hook. On mount:
  *   - If cache has a fresh entry (within `ttl`), don't fetch — just subscribe.

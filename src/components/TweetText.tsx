@@ -9,12 +9,12 @@ type Segment =
   | { kind: 'url'; url: string }
 
 /**
- * Lightweight linkifier that splits tweet text into mention / hashtag / url
- * spans. Deliberately regex-only — we don't need perfect RFC parsing, and
- * whatever the tweet CLI didn't pre-expand will stay as an `https://t.co/...`
+ * Split tweet text into mention / hashtag / url spans. Exported for tests.
+ * Deliberately regex-only — we don't need perfect RFC parsing, and whatever
+ * the tweet CLI didn't pre-expand will stay as an `https://t.co/...`
  * short-link rendered via <Link>.
  */
-function tokenize(text: string): Segment[] {
+export function tokenizeTweet(text: string): Segment[] {
   const segments: Segment[] = []
   const re = /(@([A-Za-z0-9_]{1,30}))|(#([^\s#@]{1,60}))|((?:https?:\/\/)[^\s]+)/g
   let last = 0
@@ -41,7 +41,7 @@ export function TweetText({
   text: string
   onMention?: (handle: string) => void
 }): React.ReactNode {
-  const segments = useMemo(() => tokenize(text), [text])
+  const segments = useMemo(() => tokenizeTweet(text), [text])
   return (
     <Box flexDirection="row" flexWrap="wrap">
       {segments.map((s, i) => {

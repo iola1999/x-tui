@@ -1,5 +1,6 @@
 import React from 'react'
 import { AlternateScreen, Box, useKeybinding } from '@anthropic/ink'
+import { AuthGate } from './AuthGate.js'
 import { TabBar } from './TabBar.js'
 import { StatusBar } from './StatusBar.js'
 import { FeedScreen } from '../screens/FeedScreen.js'
@@ -43,13 +44,18 @@ function ScreenRouter(): React.ReactNode {
  */
 export function FullscreenShell(): React.ReactNode {
   useKeybinding('app:help', () => push({ kind: 'help' }), { context: 'Global' })
+  useKeybinding('app:compose', () => push({ kind: 'compose', mode: { kind: 'new' } }), {
+    context: 'Global',
+  })
 
   return (
     <AlternateScreen mouseTracking={isMouseTrackingEnabled()}>
       <Box flexDirection="column" width="100%" height="100%">
         <TabBar />
         <Box flexGrow={1} flexDirection="column" overflow="hidden">
-          <ScreenRouter />
+          <AuthGate>
+            <ScreenRouter />
+          </AuthGate>
         </Box>
         <StatusBar />
       </Box>

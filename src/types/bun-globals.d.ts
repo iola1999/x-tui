@@ -2,6 +2,7 @@
 // The real types come from bun-types, but its nested install path isn't resolved
 // by tsc in this workspace. These signatures mirror the upstream Bun types.
 // x-tui's own code imports Bun APIs explicitly where needed.
+
 declare global {
   const Bun: {
     readonly stringWidth?: (str: string, options?: { ambiguousIsNarrow?: boolean }) => number
