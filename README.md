@@ -47,16 +47,20 @@
 ## Install
 
 ```bash
+# Globally via npm — recommended
+npm install -g x-tui
+x-tui
+
+# One-off via npx
+npx x-tui
+```
+
+Or run from source:
+
+```bash
 git clone https://github.com/iola1999/x-tui
 cd x-tui
 bun install
-bun run build       # → dist/cli.js
-./dist/cli.js       # run
-```
-
-Or run from source in dev mode:
-
-```bash
 bun run dev
 ```
 
@@ -146,7 +150,7 @@ See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for the status of each feature and wh
 
 ### Releasing
 
-Releases are user-triggered. Push a tag (`git tag v0.1.0 && git push origin v0.1.0`) or fire the `release` workflow from the Actions tab with a tag name — either path builds, tests, uploads source/dist tarballs, and publishes a GitHub release. See [`.github/workflows/release.yml`](./.github/workflows/release.yml) for details.
+Releases are user-triggered. Push a tag (`git tag v0.1.0 && git push origin v0.1.0`) or fire the `release` workflow from the Actions tab with a tag name — either path builds, tests, publishes to NPM (requires `NPM_TOKEN` secret), and attaches source/dist tarballs to a GitHub release. See [`.github/workflows/release.yml`](./.github/workflows/release.yml) for details.
 
 ## Acknowledgements
 
