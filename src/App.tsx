@@ -1,5 +1,6 @@
-import React, { useCallback } from 'react'
+import React, { useCallback, useLayoutEffect } from 'react'
 import {
+  instances,
   KeybindingSetup,
   parseBindings,
   ThemeProvider,
@@ -8,9 +9,28 @@ import {
 } from '@anthropic/ink'
 import { FullscreenShell } from './components/FullscreenShell.js'
 import { DEFAULT_BINDINGS } from './keybindings/bindings.js'
+import { openUrl } from './utils/openUrl.js'
 
 function QuitHandler({ onQuit }: { onQuit: () => void }): React.ReactNode {
   useKeybinding('app:quit', onQuit, { context: 'Global' })
+  return null
+}
+
+/**
+ * While alt-screen + mouse tracking is active, the terminal doesn't get
+ * to act on OSC 8 hyperlink clicks — the mouse sequence reaches us first.
+ * Ink exposes a per-instance `onHyperlinkClick`; we hook it to openUrl so
+ * tweet links behave like normal clickable URLs.
+ */
+function HyperlinkOpener(): React.ReactNode {
+  useLayoutEffect(() => {
+    const ink = instances.get(process.stdout)
+    if (!ink) return
+    ink.onHyperlinkClick = openUrl
+    return () => {
+      ink.onHyperlinkClick = undefined
+    }
+  }, [])
   return null
 }
 
@@ -41,6 +61,7 @@ export function App({ onExit }: { onExit: () => void }): React.ReactNode {
     <KeybindingSetup loadBindings={loadBindings} subscribeToChanges={subscribeToChanges}>
       <ThemeProvider initialState="dark">
         <QuitHandler onQuit={onExit} />
+        <HyperlinkOpener />
         <FullscreenShell />
       </ThemeProvider>
     </KeybindingSetup>
