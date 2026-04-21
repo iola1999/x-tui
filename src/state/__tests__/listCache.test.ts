@@ -67,6 +67,30 @@ describe('listCache', () => {
     expect(e.tweets).toHaveLength(1)
   })
 
+  test('setFocusedIndex returns a NEW entry reference (no in-place mutation)', () => {
+    // REGRESSION GUARD: earlier versions mutated `e.focusedIndex = idx` in
+    // place. Screens consume entries via useSyncExternalStore which compares
+    // snapshots with Object.is — a mutated entry reads identical, so the
+    // screen never re-renders, and TweetList's focusedIndex prop stays stale.
+    // That's how j/k and the mouse wheel silently stopped updating the focus
+    // ring in Feed/Search/Bookmarks while still working in TweetDetail
+    // (which uses useState for focus, not listCache).
+    __seedForTest('feed', [makeTweet('1'), makeTweet('2'), makeTweet('3')])
+    const before = getListEntry('feed')
+    setFocusedIndex('feed', 1)
+    const after = getListEntry('feed')
+    expect(after).not.toBe(before)
+    expect(after!.focusedIndex).toBe(1)
+  })
+
+  test('setFocusedIndex is a no-op when the index is unchanged', () => {
+    __seedForTest('feed', [makeTweet('1')])
+    const before = getListEntry('feed')
+    setFocusedIndex('feed', 0) // same as default
+    const after = getListEntry('feed')
+    expect(after).toBe(before) // no new object created, no spurious re-render
+  })
+
   test('invalidateList drops the cache entry', () => {
     __seedForTest('feed', [makeTweet('1')])
     invalidateList('feed')

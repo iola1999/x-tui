@@ -48,7 +48,13 @@ export function setFocusedIndex(key: string, idx: number): void {
   const e = cache.get(key)
   if (!e) return
   if (e.focusedIndex === idx) return
-  e.focusedIndex = idx
+  // IMPORTANT: create a new entry object rather than mutating. Screens consume
+  // the entry via `useSyncExternalStore`, which compares snapshots by
+  // reference (Object.is). Mutating in place would leave the snapshot stable
+  // and the parent screen would never re-render — breaking j/k/wheel, since
+  // TweetList then receives a stale `focusedIndex` prop and clobbers its own
+  // internalFocus on every render.
+  cache.set(key, { ...e, focusedIndex: idx })
   notify(key)
 }
 
