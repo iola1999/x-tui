@@ -78,12 +78,14 @@ export type UserResponse = {
   error?: string
 }
 
+/**
+ * `twitter tweet <id> --json` returns `data` as an array where index 0 is the
+ * requested tweet and the remaining entries are its replies (in thread order).
+ * We normalize to `{ tweet, replies }` in the service layer.
+ */
 export type TweetDetailResponse = {
   ok: boolean
-  data: {
-    tweet: Tweet
-    replies?: Tweet[]
-  }
+  data: Tweet[]
   error?: string
 }
 

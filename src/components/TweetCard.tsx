@@ -8,7 +8,7 @@ import { TW_BLUE, TW_DIM, TW_LIKE, TW_RETWEET, TW_SUBTLE } from '../theme/twitte
 import { compactNumber, formatRelative } from '../utils/time.js'
 
 type Props = {
-  tweet: Tweet
+  tweet: Tweet | undefined | null
   isFocused?: boolean
   onOpen?: (t: Tweet) => void
   onProfile?: (screenName: string) => void
@@ -32,7 +32,7 @@ function MediaBadge({ tweet }: { tweet: Tweet }): React.ReactNode {
 }
 
 function MetricsRow({ tweet }: { tweet: Tweet }): React.ReactNode {
-  const m = tweet.metrics
+  const m = tweet.metrics ?? { replies: 0, retweets: 0, likes: 0, bookmarks: 0, views: 0, quotes: 0 }
   return (
     <Box flexDirection="row" gap={2}>
       <Text color={TW_DIM}>💬 {compactNumber(m.replies)}</Text>
@@ -52,6 +52,12 @@ function MetricsRow({ tweet }: { tweet: Tweet }): React.ReactNode {
  */
 export function TweetCard({ tweet, isFocused, onOpen, onProfile }: Props): React.ReactNode {
   const [hovered, setHovered] = useState(false)
+  if (!tweet || !tweet.author) {
+    // Defensive: listCache / detail fetches sometimes hand us partial entries
+    // (e.g. a reply placeholder from a backfill). Render nothing rather than
+    // crash the whole screen.
+    return null
+  }
   const accent = isFocused ? TW_BLUE : hovered ? TW_SUBTLE : 'rgb(0,0,0)'
   const time = formatRelative(tweet.createdAtISO) || tweet.createdAtLocal || ''
 

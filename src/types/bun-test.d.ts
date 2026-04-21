@@ -20,9 +20,12 @@ declare module 'bun:test' {
     toBeUndefined: () => void
     toBeGreaterThan: (expected: number) => void
     toBeLessThanOrEqual: (expected: number) => void
+    toThrow: (expected?: RegExp | string | Error) => void
     not: {
       toThrow: () => void
       toBeNull: () => void
+      toBe: (expected: T) => void
+      toEqual: (expected: unknown) => void
     }
   }
 }

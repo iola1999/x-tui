@@ -169,23 +169,28 @@ export function TweetList({
 
   return (
     <ScrollBox ref={scrollRef} flexDirection="column" flexGrow={1}>
-      {tweets.map((t, i) => (
-        <Box
-          key={t.id}
-          ref={el => {
-            cardRefs.current[i] = el
-          }}
-          flexShrink={0}
-          flexDirection="column"
-        >
-          <TweetCard
-            tweet={t}
-            isFocused={i === focused}
-            onOpen={onOpen}
-            onProfile={onProfile}
-          />
-        </Box>
-      ))}
+      {tweets.map((t, i) => {
+        // Backfill / pagination races can occasionally insert undefined slots.
+        // Skip rather than crash on `.id` access.
+        if (!t) return null
+        return (
+          <Box
+            key={t.id}
+            ref={el => {
+              cardRefs.current[i] = el
+            }}
+            flexShrink={0}
+            flexDirection="column"
+          >
+            <TweetCard
+              tweet={t}
+              isFocused={i === focused}
+              onOpen={onOpen}
+              onProfile={onProfile}
+            />
+          </Box>
+        )
+      })}
       {loading && (
         <Box padding={1}>
           <Text color={TW_DIM}>Loading…</Text>

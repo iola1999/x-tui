@@ -170,6 +170,28 @@ export async function search(
   return { tweets: r.data, nextCursor: pickNextCursor(r) }
 }
 
+/**
+ * Normalize `twitter tweet <id> --json`'s `data` field into
+ * `{ tweet, replies }`. twitter-cli 0.8 returns `data` as an array of tweets
+ * with the requested one at index 0 and the thread replies after. Older drafts
+ * used `{tweet, replies}`; we accept both to stay compatible.
+ *
+ * Exported purely for testing — the CLI wrapper is the real caller.
+ */
+export function pickTweetDetail(data: unknown, id: string): { tweet: Tweet; replies: Tweet[] } {
+  if (Array.isArray(data)) {
+    const [tweet, ...replies] = data as Tweet[]
+    if (!tweet || !tweet.id) throw new Error(`tweet ${id} not found`)
+    return { tweet, replies }
+  }
+  if (data && typeof data === 'object' && 'tweet' in data) {
+    const d = data as { tweet?: Tweet; replies?: Tweet[] }
+    if (!d.tweet || !d.tweet.id) throw new Error(`tweet ${id} not found`)
+    return { tweet: d.tweet, replies: d.replies ?? [] }
+  }
+  throw new Error(`tweet ${id} not found`)
+}
+
 export async function tweetDetail(
   id: string,
   opts: { fullText?: boolean } = {},
@@ -178,8 +200,7 @@ export async function tweetDetail(
   if (opts.fullText) args.push('--full-text')
   const r = await runTwitter<TweetDetailResponse>(args)
   if (!r.ok) throw new Error(r.error ?? 'tweet failed')
-  const replies = r.data.replies ?? []
-  return { tweet: r.data.tweet, replies }
+  return pickTweetDetail(r.data, id)
 }
 
 export async function bookmarks(
