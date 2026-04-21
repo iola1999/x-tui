@@ -38,7 +38,7 @@
 - **Bun** ≥ 1.3 (`curl -fsSL https://bun.sh/install | bash`)
 - **twitter** CLI by jackwener (v0.8+) — login flow runs separately:
   ```bash
-  pipx install twitter-cli  # or the repo's preferred install
+  uv tool install twitter-cli  # or the repo's preferred install
   twitter auth login
   twitter status            # should print "Authenticated as @you"
   ```
