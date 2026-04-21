@@ -182,6 +182,7 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
         onQuote={actions.onQuote}
         onFollow={actions.onFollow}
         onCopyLink={actions.onCopyLink}
+        onCopyText={actions.onCopyText}
         onRefresh={() => void load()}
       />
     </Box>

@@ -28,6 +28,7 @@ export function makeTweetActions(mutate: MutateTweet): {
   onReply: (t: Tweet) => void
   onQuote: (t: Tweet) => void
   onCopyLink: (t: Tweet) => void
+  onCopyText: (t: Tweet) => void
   onMedia: (t: Tweet) => void
   onProfile: (handle: string) => void
   onOpen: (t: Tweet) => void
@@ -75,6 +76,11 @@ export function makeTweetActions(mutate: MutateTweet): {
       // OSC 52 clipboard — works in iTerm2, Kitty, WezTerm, Ghostty, tmux (if enabled).
       process.stdout.write(`\x1b]52;c;${Buffer.from(url).toString('base64')}\x07`)
       showToast('success', `Link copied: ${url}`)
+    },
+    onCopyText: (t: Tweet) => {
+      const payload = `${t.text}\n\n${tweetUrl(t)}`
+      process.stdout.write(`\x1b]52;c;${Buffer.from(payload).toString('base64')}\x07`)
+      showToast('success', 'Tweet + link copied')
     },
     onLike: (t: Tweet) => {
       const liked = t.metrics.likes > 0 ? undefined : undefined // placeholder — feed CLI doesn't expose "is-liked"

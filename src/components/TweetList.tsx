@@ -33,6 +33,7 @@ type Props = {
   onQuote?: (t: Tweet) => void
   onFollow?: (t: Tweet) => void
   onCopyLink?: (t: Tweet) => void
+  onCopyText?: (t: Tweet) => void
   onMedia?: (t: Tweet) => void
 }
 
@@ -65,6 +66,7 @@ export function TweetList({
   onQuote,
   onFollow,
   onCopyLink,
+  onCopyText,
   onMedia,
 }: Props): React.ReactNode {
   useRegisterKeybindingContext('List', true)
@@ -149,6 +151,7 @@ export function TweetList({
   useKeybinding('list:quote', currentOr(onQuote), { context: 'List' })
   useKeybinding('list:follow', currentOr(onFollow), { context: 'List' })
   useKeybinding('list:copyLink', currentOr(onCopyLink), { context: 'List' })
+  useKeybinding('list:copyText', currentOr(onCopyText), { context: 'List' })
   useKeybinding('app:refresh', () => onRefresh?.(), { context: 'Global' })
 
   if (error && tweets.length === 0) {

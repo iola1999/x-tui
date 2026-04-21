@@ -189,6 +189,7 @@ export function UserProfileScreen({ handle }: { handle?: string }): React.ReactN
         onQuote={actions.onQuote}
         onFollow={actions.onFollow}
         onCopyLink={actions.onCopyLink}
+        onCopyText={actions.onCopyText}
         onRefresh={refresh}
       />
     </Box>

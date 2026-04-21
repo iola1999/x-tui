@@ -100,6 +100,7 @@ export function BookmarksScreen(): React.ReactNode {
         onQuote={actions.onQuote}
         onFollow={actions.onFollow}
         onCopyLink={actions.onCopyLink}
+        onCopyText={actions.onCopyText}
         onRefresh={refresh}
       />
     </Box>
