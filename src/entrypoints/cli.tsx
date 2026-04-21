@@ -1,29 +1,25 @@
 #!/usr/bin/env bun
 import React from 'react'
-import { wrappedRender as render, AlternateScreen, Box, Text, ThemeProvider } from '@anthropic/ink'
-import { isFullscreenActive, isMouseTrackingEnabled } from '../utils/fullscreen.js'
-
-function HelloApp() {
-  return (
-    <AlternateScreen mouseTracking={isMouseTrackingEnabled()}>
-      <Box flexDirection="column" width="100%" height="100%" padding={1}>
-        <Text color="claude" bold>x-tui — smoke test</Text>
-        <Text dimColor>Ctrl+C to quit · mouse tracking: {isMouseTrackingEnabled() ? 'on' : 'off'}</Text>
-      </Box>
-    </AlternateScreen>
-  )
-}
+import { wrappedRender as render } from '@anthropic/ink'
+import { App } from '../App.js'
+import { isFullscreenActive } from '../utils/fullscreen.js'
 
 async function main(): Promise<void> {
   if (!isFullscreenActive()) {
-    console.log('x-tui: not in an interactive terminal (or X_TUI_NO_FLICKER=0); printing and exiting.')
+    console.log(
+      'x-tui requires an interactive terminal. ' +
+        'Set X_TUI_NO_FLICKER=0 to debug in scrollback mode (not yet implemented).',
+    )
+    process.exitCode = 1
     return
   }
-  await render(
-    <ThemeProvider>
-      <HelloApp />
-    </ThemeProvider>,
-  )
+
+  const instance = await render(<App onExit={() => instance.unmount()} />, {
+    exitOnCtrlC: false, // we handle Ctrl+C via app:quit keybinding
+    patchConsole: true,
+  })
+
+  await instance.waitUntilExit()
 }
 
 void main()

@@ -6,6 +6,11 @@
       "@anthropic/ink": ["./packages/@ant/ink/src/index.ts"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist", "packages"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "packages/@ant/ink/src/**/*.ts",
+    "packages/@ant/ink/src/**/*.tsx"
+  ],
+  "exclude": ["node_modules", "dist"]
 }
