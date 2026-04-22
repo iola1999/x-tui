@@ -2,7 +2,7 @@
 
 Where we are, what's done, what's still outstanding. Short-term items and backlog live here so the README can stay focused on "how do I use this".
 
-Last reviewed: 2026-04-22.
+Last reviewed: 2026-04-23.
 
 ## Status at a glance
 
@@ -28,6 +28,7 @@ Last reviewed: 2026-04-22.
 | Pending-chord hint in status bar            | ✅ done        |
 | OSC 8 hyperlink open handler                | ✅ done        |
 | `Shift+Y` copy tweet text + link            | ✅ done        |
+| Vendored `twitter-cli` maintenance boundary | ✅ done        |
 | Native iTerm2 / Kitty / Sixel viewer         | 🚧 encoders ok, viewer not wired |
 | Sixel encoder                                | ⬜ planned     |
 | Fuzzy picker for compose attachments        | ⬜ planned     |
@@ -91,6 +92,12 @@ Pick one, land it end-to-end, then move on.
 - Lazy-load on boot, write-back debounced when a setting changes.
 - Settings screen under Profile tab (or `:theme` command once we add command
   mode).
+
+## Repo maintenance
+
+- `twitter-cli` now lives under `vendor/twitter-cli` as a clean vendored Python subproject.
+- Keep Python-specific changes inside that directory and keep the Bun app talking to it only through the CLI / daemon protocol boundary.
+- If we later want a standalone package again, the isolated directory can be split back out without restructuring the TypeScript app.
 
 ## Medium-term
 

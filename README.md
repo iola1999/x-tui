@@ -43,11 +43,21 @@ This reply-depth limit is intentional for latency. Making tweet-detail reply pag
 ## Requirements
 
 - **Bun** ≥ 1.3 (`curl -fsSL https://bun.sh/install | bash`)
-- **twitter** CLI by jackwener (v0.8+) — login flow runs separately:
+- **Compatible `twitter` CLI** with daemon + `--pages` support.
+  During source development, the maintained copy lives in [`vendor/twitter-cli`](./vendor/twitter-cli).
+  For packaged/global `x-tui` installs, keep a compatible `twitter` binary on `PATH` or set `X_TUI_TWITTER_CMD`.
+- Login flow runs separately:
   ```bash
-  uv tool install twitter-cli  # or the repo's preferred install
+  # repo development
+  cd vendor/twitter-cli
+  uv sync
+  ./.venv/bin/twitter auth login
+  ./.venv/bin/twitter status  # should print "Authenticated as @you"
+
+  # packaged/global x-tui installs
+  uv tool install twitter-cli
   twitter auth login
-  twitter status            # should print "Authenticated as @you"
+  twitter status              # should print "Authenticated as @you"
   ```
 - A terminal that supports SGR mouse tracking. iTerm2, Kitty, Ghostty, WezTerm, Alacritty, and Windows Terminal all work. Apple Terminal works too but without inline image protocols.
 
@@ -68,8 +78,11 @@ Or run from source:
 git clone https://github.com/iola1999/x-tui
 cd x-tui
 bun install
+cd vendor/twitter-cli && uv sync && cd ../..
 bun run dev
 ```
+
+When `vendor/twitter-cli/.venv/bin/twitter` exists, `x-tui` will prefer it automatically.
 
 ## Keyboard reference
 
@@ -153,6 +166,8 @@ bun test            # unit tests
 bun run build       # production build → dist/
 bun run lint        # biome check
 ```
+
+`twitter-cli` is maintained in-tree under [`vendor/twitter-cli`](./vendor/twitter-cli). Keep Python changes isolated there and communicate with it only through the executable / daemon boundary. See [`docs/vendor-twitter-cli.md`](./docs/vendor-twitter-cli.md) for setup, verification, and future standalone-package notes.
 
 See [`docs/ROADMAP.md`](./docs/ROADMAP.md) for the status of each feature and what's planned next.
 

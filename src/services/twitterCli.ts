@@ -33,8 +33,8 @@ export function resolveTwitterCmd(
   const override = env.X_TUI_TWITTER_CMD?.trim()
   if (override) return override
 
-  const siblingFork = fileURLToPath(new URL('../../../twitter-cli/.venv/bin/twitter', moduleUrl))
-  if (exists(siblingFork)) return siblingFork
+  const vendored = fileURLToPath(new URL('../../vendor/twitter-cli/.venv/bin/twitter', moduleUrl))
+  if (exists(vendored)) return vendored
 
   return 'twitter'
 }
@@ -43,10 +43,10 @@ export function describeCliFailure({ exitCode, args, stderr, stdout }: CliFailur
   const combined = `${stderr}\n${stdout}`
 
   if (exitCode === 2 && /No such option:\s+--pages/i.test(combined)) {
-    return `Installed twitter CLI is too old and does not support --pages. x-tui needs the forked twitter-cli with page-limit and daemon support. Set X_TUI_TWITTER_CMD to that binary or put it earlier on PATH.`
+    return `Installed twitter CLI is too old and does not support --pages. x-tui needs a compatible twitter-cli with page-limit and daemon support. Set X_TUI_TWITTER_CMD to that binary or put it earlier on PATH.`
   }
   if (exitCode === 2 && /No such command ['"]daemon['"]/i.test(combined)) {
-    return `Installed twitter CLI is too old and does not support the daemon subcommand. Set X_TUI_TWITTER_CMD to the forked twitter-cli binary or update PATH to use it first.`
+    return `Installed twitter CLI is too old and does not support the daemon subcommand. Set X_TUI_TWITTER_CMD to a compatible twitter-cli binary or update PATH to use it first.`
   }
 
   return null

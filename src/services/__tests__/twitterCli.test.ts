@@ -111,7 +111,7 @@ describe('TwitterCliError.kind', () => {
 })
 
 describe('resolveTwitterCmd', () => {
-  it('prefers explicit X_TUI_TWITTER_CMD over local sibling fork', () => {
+  it('prefers explicit X_TUI_TWITTER_CMD over vendored twitter-cli', () => {
     const resolved = resolveTwitterCmd(
       { X_TUI_TWITTER_CMD: '/tmp/custom-twitter' },
       () => true,
@@ -120,16 +120,16 @@ describe('resolveTwitterCmd', () => {
     expect(resolved).toBe('/tmp/custom-twitter')
   })
 
-  it('auto-detects sibling twitter-cli fork when env is unset', () => {
+  it('auto-detects vendored twitter-cli when env is unset', () => {
     const resolved = resolveTwitterCmd(
       {},
-      path => path === '/Users/fan/project/nodejs/twitter-cli/.venv/bin/twitter',
+      path => path === '/Users/fan/project/nodejs/x-tui/vendor/twitter-cli/.venv/bin/twitter',
       'file:///Users/fan/project/nodejs/x-tui/src/services/twitterCli.ts',
     )
-    expect(resolved).toBe('/Users/fan/project/nodejs/twitter-cli/.venv/bin/twitter')
+    expect(resolved).toBe('/Users/fan/project/nodejs/x-tui/vendor/twitter-cli/.venv/bin/twitter')
   })
 
-  it('falls back to PATH twitter when no override or sibling fork exists', () => {
+  it('falls back to PATH twitter when no override or vendored copy exists', () => {
     const resolved = resolveTwitterCmd(
       {},
       () => false,
