@@ -58,6 +58,7 @@ export type FeedResponse = {
   cursor?: string
   nextCursor?: string
   next_cursor?: string
+  pagination?: { nextCursor?: string }
   error?: string
 }
 

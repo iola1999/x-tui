@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'bun:test'
-import { pickTweetDetail, TwitterCliError } from '../twitterCli.js'
+import {
+  describeCliFailure,
+  pickTweetDetail,
+  resolveTwitterCmd,
+  TwitterCliError,
+} from '../twitterCli.js'
 
 /**
  * Regression guard for the tweet-detail shape.
@@ -102,5 +107,47 @@ describe('TwitterCliError.kind', () => {
     expect(make({ stderr: '401' }).authMissing).toBe(true)
     expect(make({ enoent: true }).authMissing).toBe(false)
     expect(make({ stderr: 'network down' }).authMissing).toBe(false)
+  })
+})
+
+describe('resolveTwitterCmd', () => {
+  it('prefers explicit X_TUI_TWITTER_CMD over local sibling fork', () => {
+    const resolved = resolveTwitterCmd(
+      { X_TUI_TWITTER_CMD: '/tmp/custom-twitter' },
+      () => true,
+      'file:///Users/fan/project/nodejs/x-tui/src/services/twitterCli.ts',
+    )
+    expect(resolved).toBe('/tmp/custom-twitter')
+  })
+
+  it('auto-detects sibling twitter-cli fork when env is unset', () => {
+    const resolved = resolveTwitterCmd(
+      {},
+      path => path === '/Users/fan/project/nodejs/twitter-cli/.venv/bin/twitter',
+      'file:///Users/fan/project/nodejs/x-tui/src/services/twitterCli.ts',
+    )
+    expect(resolved).toBe('/Users/fan/project/nodejs/twitter-cli/.venv/bin/twitter')
+  })
+
+  it('falls back to PATH twitter when no override or sibling fork exists', () => {
+    const resolved = resolveTwitterCmd(
+      {},
+      () => false,
+      'file:///Users/fan/project/nodejs/x-tui/src/services/twitterCli.ts',
+    )
+    expect(resolved).toBe('twitter')
+  })
+})
+
+describe('describeCliFailure', () => {
+  it('turns old-cli --pages usage errors into an actionable hint', () => {
+    expect(
+      describeCliFailure({
+        exitCode: 2,
+        args: ['tweet', '123', '--pages', '1', '--json'],
+        stderr: 'Error: No such option: --pages',
+        stdout: '',
+      }),
+    ).toMatch(/too old/i)
   })
 })

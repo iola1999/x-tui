@@ -33,6 +33,7 @@ Last reviewed: 2026-04-22.
 | Fuzzy picker for compose attachments        | ⬜ planned     |
 | Feed pagination (cursor)                    | ⬜ planned     |
 | Config persistence (`~/.config/x-tui`)      | ⬜ planned     |
+| Configurable tweet-detail reply depth       | ⬜ planned     |
 | Command mode (`:q`, `:refresh`, `:goto`)    | ⬜ planned     |
 | Debug log file                              | ⬜ planned     |
 | Double-click to like                        | ⬜ idea        |
@@ -85,7 +86,7 @@ Pick one, land it end-to-end, then move on.
 ### 5. Config persistence
 
 - `~/.config/x-tui/config.json` — theme, default tab, image protocol override,
-  keybinding overrides (`bindings.ts` already accepts overrides via
+  tweet-detail reply page depth, keybinding overrides (`bindings.ts` already accepts overrides via
   `parseBindings`).
 - Lazy-load on boot, write-back debounced when a setting changes.
 - Settings screen under Profile tab (or `:theme` command once we add command

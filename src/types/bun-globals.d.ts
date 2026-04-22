@@ -4,6 +4,15 @@
 // x-tui's own code imports Bun APIs explicitly where needed.
 
 declare global {
+  type BunFileSink = {
+    write: (chunk: Uint8Array | string) => unknown
+    end?: () => void
+    flush?: () => unknown
+    close?: () => void
+    ref?: () => void
+    unref?: () => void
+  }
+
   const Bun: {
     readonly stringWidth?: (str: string, options?: { ambiguousIsNarrow?: boolean }) => number
     readonly wrapAnsi?: (
@@ -22,7 +31,7 @@ declare global {
     }) => {
       readonly stdout: ReadableStream
       readonly stderr: ReadableStream
-      readonly stdin: WritableStream
+      readonly stdin: WritableStream | BunFileSink
       readonly exited: Promise<number>
       readonly exitCode: number | null
       kill: (signal?: string | number) => void

@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { Box, Text, useKeybinding, useRegisterKeybindingContext } from '@anthropic/ink'
-import { tweetDetail } from '../services/twitterCli.js'
+import { tweetDetail, tweetHead } from '../services/twitterCli.js'
 import type { Tweet } from '../types/tweet.js'
 import { TweetCard } from '../components/TweetCard.js'
 import { TweetList } from '../components/TweetList.js'
@@ -20,7 +20,12 @@ import {
  * (because the shape is tweet + replies[], not a flat list). Still uses
  * listCache for the replies list so mutations propagate across the app.
  */
-type DetailEntry = { tweet: Tweet; replies: Tweet[]; fetchedAt: number }
+type DetailEntry = {
+  tweet: Tweet
+  replies: Tweet[]
+  tweetFetchedAt: number
+  repliesFetchedAt?: number
+}
 
 const detailCache = new Map<string, DetailEntry>()
 const detailListeners = new Map<string, Set<() => void>>()
@@ -33,7 +38,7 @@ function notifyDetail(id: string): void {
 export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
   useRegisterKeybindingContext('List', true)
   const [, forceRerender] = useState(0)
-  const [loading, setLoading] = useState(() => !detailCache.has(id))
+  const [loading, setLoading] = useState(() => !detailCache.get(id)?.tweet)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -46,12 +51,42 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
   }, [id])
 
   const load = useCallback(async () => {
+    const now = Date.now()
+    const cached = detailCache.get(id)
+    const tweetStale = !cached || now - cached.tweetFetchedAt > 60_000
+    const repliesStale = !cached?.repliesFetchedAt || now - cached.repliesFetchedAt > 60_000
+
+    if (!tweetStale && !repliesStale) {
+      setLoading(false)
+      return
+    }
+
     setLoading(true)
     setError(null)
     try {
-      const d = await tweetDetail(id)
-      detailCache.set(id, { tweet: d.tweet, replies: d.replies, fetchedAt: Date.now() })
-      notifyDetail(id)
+      if (tweetStale) {
+        const head = await tweetHead(id)
+        const prev = detailCache.get(id)
+        detailCache.set(id, {
+          tweet: head,
+          replies: prev?.replies ?? [],
+          tweetFetchedAt: Date.now(),
+          repliesFetchedAt: prev?.repliesFetchedAt,
+        })
+        notifyDetail(id)
+      }
+
+      if (repliesStale) {
+        const d = await tweetDetail(id, { pages: 1 })
+        const prev = detailCache.get(id)
+        detailCache.set(id, {
+          tweet: d.tweet,
+          replies: d.replies,
+          tweetFetchedAt: Date.now(),
+          repliesFetchedAt: Date.now(),
+        })
+        notifyDetail(id)
+      }
     } catch (e) {
       setError((e as Error).message)
     } finally {
@@ -61,7 +96,11 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
 
   useEffect(() => {
     const cached = detailCache.get(id)
-    const stale = !cached || Date.now() - cached.fetchedAt > 60_000
+    const stale =
+      !cached ||
+      Date.now() - cached.tweetFetchedAt > 60_000 ||
+      !cached.repliesFetchedAt ||
+      Date.now() - cached.repliesFetchedAt > 60_000
     if (stale) void load()
     else setLoading(false)
   }, [id, load])

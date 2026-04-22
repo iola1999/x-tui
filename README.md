@@ -33,6 +33,13 @@
 - **Optimistic writes** — like/retweet/bookmark update locally on the tap, then reconcile; errors roll back with a toast.
 - **Compose** — multiline editor for new tweets, replies, and quote tweets, with image attachments (up to 4).
 
+Tweet detail currently loads in two stages:
+
+- the main tweet first
+- then only the first page of replies
+
+This reply-depth limit is intentional for latency. Making tweet-detail reply pages configurable is planned for a future settings/config release.
+
 ## Requirements
 
 - **Bun** ≥ 1.3 (`curl -fsSL https://bun.sh/install | bash`)
@@ -134,6 +141,7 @@ Mouse:
 | `X_TUI_ASSUME_SIXEL=1`          | Hint that the current terminal supports sixel.                       |
 | `X_TUI_CACHE_DIR=<path>`        | Override media cache dir (default `~/.cache/x-tui/media`).          |
 | `X_TUI_TWITTER_CMD=<path>`      | Override the `twitter` executable name/path.                         |
+| `X_TUI_TWITTER_TRANSPORT=spawn` | Disable the resident `twitter daemon` process and force one-shot CLI calls. |
 | `X_TUI_REDUCED_MOTION=1`        | Replace the animated spinner with a static dot.                      |
 
 ## Development

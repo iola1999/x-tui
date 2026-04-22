@@ -1,9 +1,10 @@
 /**
- * Thin wrapper over the `twitter` CLI. Every call spawns the CLI with
- * `--json` and parses its stdout. stderr is preserved for error surfacing.
- *
- * We avoid `execa` to keep dependency surface small — Bun.spawn is enough.
+ * Thin wrapper over twitter-cli. By default x-tui prefers a resident
+ * `twitter daemon` child process to avoid repeated cold starts, but can
+ * fall back to one-shot `twitter ... --json` invocations when needed.
  */
+import { existsSync } from 'node:fs'
+import { fileURLToPath } from 'node:url'
 import type {
   FeedResponse,
   Tweet,
@@ -11,8 +12,50 @@ import type {
   UserResponse,
   WriteResponse,
 } from '../types/tweet.js'
+import {
+  TwitterDaemonClient,
+  TwitterDaemonRemoteError,
+  TwitterDaemonTransportError,
+} from './twitterDaemon.js'
 
-const TWITTER_CMD = process.env.X_TUI_TWITTER_CMD ?? 'twitter'
+type CliFailure = {
+  exitCode: number
+  args: string[]
+  stderr: string
+  stdout: string
+}
+
+export function resolveTwitterCmd(
+  env: NodeJS.ProcessEnv = process.env,
+  exists: (path: string) => boolean = existsSync,
+  moduleUrl = import.meta.url,
+): string {
+  const override = env.X_TUI_TWITTER_CMD?.trim()
+  if (override) return override
+
+  const siblingFork = fileURLToPath(new URL('../../../twitter-cli/.venv/bin/twitter', moduleUrl))
+  if (exists(siblingFork)) return siblingFork
+
+  return 'twitter'
+}
+
+export function describeCliFailure({ exitCode, args, stderr, stdout }: CliFailure): string | null {
+  const combined = `${stderr}\n${stdout}`
+
+  if (exitCode === 2 && /No such option:\s+--pages/i.test(combined)) {
+    return `Installed twitter CLI is too old and does not support --pages. x-tui needs the forked twitter-cli with page-limit and daemon support. Set X_TUI_TWITTER_CMD to that binary or put it earlier on PATH.`
+  }
+  if (exitCode === 2 && /No such command ['"]daemon['"]/i.test(combined)) {
+    return `Installed twitter CLI is too old and does not support the daemon subcommand. Set X_TUI_TWITTER_CMD to the forked twitter-cli binary or update PATH to use it first.`
+  }
+
+  return null
+}
+
+const TWITTER_CMD = resolveTwitterCmd()
+const TWITTER_TRANSPORT = process.env.X_TUI_TWITTER_TRANSPORT ?? 'daemon'
+let daemonClient: TwitterDaemonClient | null = null
+let daemonDisabled = TWITTER_TRANSPORT === 'spawn'
 
 /** Classification used by the boot gate + toast surfaces to pick the
  *  right onboarding message. `cliMissing` means the binary wasn't on
@@ -78,6 +121,31 @@ async function readAll(stream: ReadableStream<Uint8Array> | null | undefined): P
   return new TextDecoder().decode(merged)
 }
 
+function daemonError(op: string, err: TwitterDaemonRemoteError): TwitterCliError {
+  return new TwitterCliError({
+    message: err.message,
+    exitCode: 1,
+    stderr: err.message,
+    stdout: '',
+    args: [op],
+  })
+}
+
+function getDaemonClient(): TwitterDaemonClient {
+  if (!daemonClient) {
+    daemonClient = new TwitterDaemonClient(() =>
+      Bun.spawn({
+        cmd: [TWITTER_CMD, 'daemon'],
+        stdin: 'pipe',
+        stdout: 'pipe',
+        stderr: 'pipe',
+        env: { ...process.env, NO_COLOR: '1' },
+      }),
+    )
+  }
+  return daemonClient
+}
+
 /**
  * Spawn `twitter` with the given args (plus a guaranteed `--json`). Returns
  * parsed JSON of type T. Throws TwitterCliError for non-zero exits or parse
@@ -132,8 +200,20 @@ export async function runTwitter<T>(
   if (killTimer) clearTimeout(killTimer)
 
   if (exitCode !== 0) {
+    const helpful = describeCliFailure({
+      exitCode,
+      args: finalArgs,
+      stderr: stderr.trim(),
+      stdout: stdout.trim(),
+    })
+    const detailLine = (stderr || stdout)
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .find(Boolean)
     throw new TwitterCliError({
-      message: `twitter ${finalArgs.join(' ')} exited ${exitCode}`,
+      message:
+        helpful ??
+        `twitter ${finalArgs.join(' ')} exited ${exitCode}${detailLine ? `: ${detailLine}` : ''}`,
       exitCode,
       stderr: stderr.trim(),
       stdout: stdout.trim(),
@@ -154,16 +234,35 @@ export async function runTwitter<T>(
   }
 }
 
+async function callTwitter<T>(
+  op: string,
+  params: Record<string, unknown>,
+  spawnArgs: string[],
+  opts: { timeout?: number } = {},
+): Promise<T> {
+  if (daemonDisabled) return runTwitter<T>(spawnArgs, opts)
+  try {
+    return await getDaemonClient().request<T>(op, params)
+  } catch (err) {
+    if (err instanceof TwitterDaemonRemoteError) throw daemonError(op, err)
+    if (err instanceof TwitterDaemonTransportError) {
+      daemonDisabled = true
+      return runTwitter<T>(spawnArgs, opts)
+    }
+    throw err
+  }
+}
+
 // -- High-level API wrappers --------------------------------------------------
 
 export async function whoami(): Promise<UserResponse['data']['user']> {
-  const res = await runTwitter<UserResponse>(['whoami'])
+  const res = await callTwitter<UserResponse>('whoami', {}, ['whoami'])
   if (!res.ok) throw new Error(res.error ?? 'whoami failed')
   return res.data.user
 }
 
 function pickNextCursor(r: FeedResponse): string | undefined {
-  return r.nextCursor ?? r.next_cursor ?? r.cursor
+  return r.nextCursor ?? r.next_cursor ?? r.cursor ?? r.pagination?.nextCursor
 }
 
 export async function feed(
@@ -173,7 +272,11 @@ export async function feed(
   if (opts.max) args.push('--max', String(opts.max))
   if (opts.cursor) args.push('--cursor', opts.cursor)
   if (opts.fullText) args.push('--full-text')
-  const r = await runTwitter<FeedResponse>(args)
+  const r = await callTwitter<FeedResponse>(
+    'feed',
+    { max: opts.max, cursor: opts.cursor, fullText: opts.fullText },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'feed failed')
   return { tweets: r.data, nextCursor: pickNextCursor(r) }
 }
@@ -208,7 +311,25 @@ export async function search(
   if (opts.excludeRetweets) args.push('--exclude', 'retweets')
   if (opts.filter) args.push('--filter')
   if (opts.fullText) args.push('--full-text')
-  const r = await runTwitter<FeedResponse>(args)
+  const r = await callTwitter<FeedResponse>(
+    'search',
+    {
+      query,
+      tab: opts.tab,
+      max: opts.max,
+      cursor: opts.cursor,
+      from: opts.from,
+      lang: opts.lang,
+      since: opts.since,
+      until: opts.until,
+      hasImages: opts.hasImages,
+      hasLinks: opts.hasLinks,
+      excludeRetweets: opts.excludeRetweets,
+      filter: opts.filter,
+      fullText: opts.fullText,
+    },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'search failed')
   return { tweets: r.data, nextCursor: pickNextCursor(r) }
 }
@@ -237,13 +358,45 @@ export function pickTweetDetail(data: unknown, id: string): { tweet: Tweet; repl
 
 export async function tweetDetail(
   id: string,
-  opts: { fullText?: boolean } = {},
+  opts: { fullText?: boolean; max?: number; pages?: number } = {},
 ): Promise<{ tweet: Tweet; replies: Tweet[] }> {
   const args = ['tweet', id]
+  if (opts.max) args.push('--max', String(opts.max))
+  if (opts.pages) args.push('--pages', String(opts.pages))
   if (opts.fullText) args.push('--full-text')
-  const r = await runTwitter<TweetDetailResponse>(args)
+  const r = await callTwitter<TweetDetailResponse>(
+    'tweet_detail',
+    { id, max: opts.max, pageLimit: opts.pages, fullText: opts.fullText },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'tweet failed')
   return pickTweetDetail(r.data, id)
+}
+
+type TweetHeadResponse = { ok: boolean; data: { tweet: Tweet }; error?: string }
+
+export async function tweetHead(id: string): Promise<Tweet> {
+  const spawnArgs = ['tweet', id, '--max', '1', '--pages', '1']
+  if (daemonDisabled) {
+    const r = await runTwitter<TweetDetailResponse>(spawnArgs)
+    if (!r.ok) throw new Error(r.error ?? 'tweet head failed')
+    return pickTweetDetail(r.data, id).tweet
+  }
+  try {
+    const r = await getDaemonClient().request<TweetHeadResponse>('tweet_head', { id })
+    if (!r.ok) throw new Error(r.error ?? 'tweet head failed')
+    if (!r.data?.tweet?.id) throw new Error(`tweet ${id} not found`)
+    return r.data.tweet
+  } catch (err) {
+    if (err instanceof TwitterDaemonRemoteError) throw daemonError('tweet_head', err)
+    if (err instanceof TwitterDaemonTransportError) {
+      daemonDisabled = true
+      const r = await runTwitter<TweetDetailResponse>(spawnArgs)
+      if (!r.ok) throw new Error(r.error ?? 'tweet head failed')
+      return pickTweetDetail(r.data, id).tweet
+    }
+    throw err
+  }
 }
 
 export async function bookmarks(
@@ -253,13 +406,18 @@ export async function bookmarks(
   if (opts.max) args.push('--max', String(opts.max))
   if (opts.cursor) args.push('--cursor', opts.cursor)
   if (opts.fullText) args.push('--full-text')
-  const r = await runTwitter<FeedResponse>(args)
+  const r = await callTwitter<FeedResponse>(
+    'bookmarks',
+    { max: opts.max, cursor: opts.cursor, fullText: opts.fullText },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'bookmarks failed')
   return { tweets: r.data, nextCursor: pickNextCursor(r) }
 }
 
 export async function userProfile(handle: string): Promise<UserResponse['data']['user']> {
-  const r = await runTwitter<UserResponse>(['user', handle.replace(/^@/, '')])
+  const normalized = handle.replace(/^@/, '')
+  const r = await callTwitter<UserResponse>('user_profile', { handle: normalized }, ['user', normalized])
   if (!r.ok) throw new Error(r.error ?? 'user failed')
   return r.data.user
 }
@@ -272,7 +430,11 @@ export async function userPosts(
   if (opts.max) args.push('--max', String(opts.max))
   if (opts.cursor) args.push('--cursor', opts.cursor)
   if (opts.fullText) args.push('--full-text')
-  const r = await runTwitter<FeedResponse>(args)
+  const r = await callTwitter<FeedResponse>(
+    'user_posts',
+    { handle: handle.replace(/^@/, ''), max: opts.max, cursor: opts.cursor, fullText: opts.fullText },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'user-posts failed')
   return { tweets: r.data, nextCursor: pickNextCursor(r) }
 }
@@ -280,42 +442,44 @@ export async function userPosts(
 // -- Write operations (Phase 7 will wire keybindings to these) ---------------
 
 export async function like(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['like', id])
+  const r = await callTwitter<WriteResponse>('like', { id }, ['like', id])
   if (!r.ok) throw new Error(r.error ?? 'like failed')
 }
 
 export async function unlike(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['unlike', id])
+  const r = await callTwitter<WriteResponse>('unlike', { id }, ['unlike', id])
   if (!r.ok) throw new Error(r.error ?? 'unlike failed')
 }
 
 export async function retweet(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['retweet', id])
+  const r = await callTwitter<WriteResponse>('retweet', { id }, ['retweet', id])
   if (!r.ok) throw new Error(r.error ?? 'retweet failed')
 }
 
 export async function unretweet(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['unretweet', id])
+  const r = await callTwitter<WriteResponse>('unretweet', { id }, ['unretweet', id])
   if (!r.ok) throw new Error(r.error ?? 'unretweet failed')
 }
 
 export async function bookmark(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['bookmark', id])
+  const r = await callTwitter<WriteResponse>('bookmark', { id }, ['bookmark', id])
   if (!r.ok) throw new Error(r.error ?? 'bookmark failed')
 }
 
 export async function unbookmark(id: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['unbookmark', id])
+  const r = await callTwitter<WriteResponse>('unbookmark', { id }, ['unbookmark', id])
   if (!r.ok) throw new Error(r.error ?? 'unbookmark failed')
 }
 
 export async function follow(handle: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['follow', handle.replace(/^@/, '')])
+  const normalized = handle.replace(/^@/, '')
+  const r = await callTwitter<WriteResponse>('follow', { handle: normalized }, ['follow', normalized])
   if (!r.ok) throw new Error(r.error ?? 'follow failed')
 }
 
 export async function unfollow(handle: string): Promise<void> {
-  const r = await runTwitter<WriteResponse>(['unfollow', handle.replace(/^@/, '')])
+  const normalized = handle.replace(/^@/, '')
+  const r = await callTwitter<WriteResponse>('unfollow', { handle: normalized }, ['unfollow', normalized])
   if (!r.ok) throw new Error(r.error ?? 'unfollow failed')
 }
 
@@ -326,7 +490,11 @@ export async function postTweet(
   const args = ['post', text]
   if (opts.replyTo) args.push('--reply-to', opts.replyTo)
   for (const img of opts.images ?? []) args.push('-i', img)
-  const r = await runTwitter<WriteResponse>(args)
+  const r = await callTwitter<WriteResponse>(
+    'post',
+    { text, replyTo: opts.replyTo, images: opts.images ?? [] },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'post failed')
   return r.data as Tweet
 }
@@ -338,7 +506,11 @@ export async function replyTweet(
 ): Promise<Tweet> {
   const args = ['reply', id, text]
   for (const img of opts.images ?? []) args.push('-i', img)
-  const r = await runTwitter<WriteResponse>(args)
+  const r = await callTwitter<WriteResponse>(
+    'reply',
+    { id, text, images: opts.images ?? [] },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'reply failed')
   return r.data as Tweet
 }
@@ -350,7 +522,11 @@ export async function quoteTweet(
 ): Promise<Tweet> {
   const args = ['quote', id, text]
   for (const img of opts.images ?? []) args.push('-i', img)
-  const r = await runTwitter<WriteResponse>(args)
+  const r = await callTwitter<WriteResponse>(
+    'quote',
+    { id, text, images: opts.images ?? [] },
+    args,
+  )
   if (!r.ok) throw new Error(r.error ?? 'quote failed')
   return r.data as Tweet
 }
