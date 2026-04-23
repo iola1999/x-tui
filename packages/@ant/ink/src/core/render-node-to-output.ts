@@ -7,6 +7,7 @@ import { LayoutDisplay, LayoutEdge, type LayoutNode } from './layout/node.js'
 import { nodeCache, pendingClears } from './node-cache.js'
 import type Output from './output.js'
 import renderBorder from './render-border.js'
+import { shouldFollowScrollOnGrowth } from './scrollFollow.js'
 import type { Screen } from './screen.js'
 import {
   type StyledSegment,
@@ -762,9 +763,14 @@ function renderNodeToOutput(
         // spacer) making scrollTop >= prevMaxScroll true by artifact, not
         // because the user was at bottom.
         const grew = scrollHeight >= prevScrollHeight
-        const atBottom =
-          sticky || (grew && scrollTopBeforeFollow >= prevMaxScroll)
-        if (atBottom && (node.pendingScrollDelta ?? 0) >= 0) {
+        const atBottom = shouldFollowScrollOnGrowth({
+          sticky,
+          grew,
+          scrollTopBeforeFollow,
+          prevMaxScroll,
+          pendingScrollDelta: node.pendingScrollDelta ?? 0,
+        })
+        if (atBottom) {
           node.scrollTop = maxScroll
           node.pendingScrollDelta = undefined
           // Sync flag so useVirtualScroll's isSticky() agrees with positional
