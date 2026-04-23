@@ -29,7 +29,8 @@ Last reviewed: 2026-04-23.
 | OSC 8 hyperlink open handler                | ✅ done        |
 | `Shift+Y` copy tweet text + link            | ✅ done        |
 | Vendored `twitter-cli` maintenance boundary | ✅ done        |
-| Native iTerm2 / Kitty / Sixel viewer         | 🚧 encoders ok, viewer not wired |
+| Native iTerm2 / Kitty viewer                 | ✅ done        |
+| Sixel viewer                                  | ⬜ planned     |
 | Sixel encoder                                | ⬜ planned     |
 | Fuzzy picker for compose attachments        | ⬜ planned     |
 | Feed pagination (cursor)                    | ⬜ planned     |
@@ -45,21 +46,15 @@ Last reviewed: 2026-04-23.
 
 Pick one, land it end-to-end, then move on.
 
-### 1. Wire native image protocols into `ImageViewerScreen`
+### 1. Native thumbnails beyond halfblock
 
-- We already have `src/utils/imageEncoders/{iterm2,kitty,halfblock}.ts` and
-  `src/utils/terminalCaps.ts` detects iTerm2 / Kitty / Ghostty / Sixel (opt-in).
-- `ImageViewerScreen` still always calls `renderHalfblock`. Switch on
-  `terminalCaps.protocol`:
-  - `iterm2` → `renderITerm2` and write via `useTerminalNotification`.
-  - `kitty` → `renderKitty` + chunked APC.
-  - `sixel` → **missing encoder**; see #2.
-  - `halfblock` → keep as fallback.
-- Protocol images bypass ink's screen diff; use `writeRaw` + an empty Box of
-  the same cell size + `instances.get(stdout).forceFullRerender()` on close.
-  (See plan §3 "Protocol image inlining".)
-- Add an env override `X_TUI_IMAGE_PROTOCOL=halfblock|iterm2|kitty|sixel|auto`
-  so broken terminals can downgrade without config.
+- `ImageViewerScreen` now writes native iTerm2 / Kitty graphics sequences for
+  supported terminals and falls back to halfblock elsewhere.
+- Inline `MediaThumbs` still use halfblock because protocol images bypass Ink's
+  diff buffer and need their own redraw/cleanup rules to avoid stale paint.
+- Next step is deciding whether protocol thumbnails are worth the extra
+  complexity, or whether halfblock is good enough inline and native stays
+  fullscreen-only.
 
 ### 2. Sixel encoder + detection
 

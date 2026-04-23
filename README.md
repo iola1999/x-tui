@@ -28,7 +28,7 @@
 - **Full-screen alt-screen rendering** — like vim/htop, doesn't scroll your shell history. Clean exit restores the terminal.
 - **Mouse first-class** — click tabs, tweets, `@handle`s, media thumbnails; wheel scroll moves focus through the list.
 - **vim-like keys** — `j`/`k`/`gg`/`G`/`space` for movement; `l`/`t`/`b` for like/retweet/bookmark; `r`/`Shift+Q` for reply/quote; `/` for search; `?` for help.
-- **Inline image previews** — halfblock (▀) thumbnails in the feed, full-size halfblock viewer on `i`. Auto-detects iTerm2 / Kitty / Sixel for future native-protocol rendering.
+- **Inline image previews** — halfblock (▀) thumbnails in the feed, plus a native-protocol full-size viewer on `i` for iTerm2 / Kitty / Ghostty / WezTerm, with halfblock fallback elsewhere.
 - **Stale-while-revalidate caching** — going back from a tweet detail doesn't refetch; per-list focus index is preserved.
 - **Optimistic writes** — like/retweet/bookmark update locally on the tap, then reconcile; errors roll back with a toast.
 - **Compose** — multiline editor for new tweets, replies, and quote tweets, with image attachments (up to 4).
