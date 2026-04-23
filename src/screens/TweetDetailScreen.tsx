@@ -345,6 +345,7 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
             tweet={entry.tweet}
             isFocused={focused === 0}
             onOpen={openTweet}
+            onMedia={actions.onMedia}
             onProfile={actions.onProfile}
           />
         </Box>
@@ -370,6 +371,7 @@ export function TweetDetailScreen({ id }: { id: string }): React.ReactNode {
               tweet={tweet}
               isFocused={focused === i + 1}
               onOpen={openTweet}
+              onMedia={actions.onMedia}
               onProfile={actions.onProfile}
             />
           </Box>

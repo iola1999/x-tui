@@ -6,6 +6,7 @@ import {
   push,
   replaceRoot,
   setActiveTab,
+  updateCurrentImageViewerIndex,
 } from '../store.js'
 
 /**
@@ -80,5 +81,17 @@ describe('store navigation', () => {
     replaceRoot('feed', { kind: 'feed' })
     expect(getState().stacks.feed).toHaveLength(1)
     expect(currentScreen()).toEqual({ kind: 'feed' })
+  })
+
+  it('updateCurrentImageViewerIndex patches only the top image-viewer screen', () => {
+    push({ kind: 'imageViewer', urls: ['a', 'b', 'c'], index: 0, tweetId: 't1' })
+    updateCurrentImageViewerIndex(2)
+
+    expect(currentScreen()).toEqual({
+      kind: 'imageViewer',
+      urls: ['a', 'b', 'c'],
+      index: 2,
+      tweetId: 't1',
+    })
   })
 })

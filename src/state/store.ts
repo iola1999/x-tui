@@ -102,6 +102,20 @@ export function push(screen: Screen): void {
   }))
 }
 
+export function updateCurrentImageViewerIndex(index: number): void {
+  const { activeTab, stacks } = state
+  const stack = stacks[activeTab]
+  const top = stack[stack.length - 1]
+  if (!top || top.kind !== 'imageViewer' || top.index === index) return
+
+  setState({
+    stacks: {
+      ...stacks,
+      [activeTab]: [...stack.slice(0, -1), { ...top, index }],
+    },
+  })
+}
+
 /** Pop current screen. Returns true if a pop happened (tab stack had depth >1). */
 export function pop(): boolean {
   const { stacks, activeTab } = state

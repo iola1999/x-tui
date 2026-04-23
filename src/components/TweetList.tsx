@@ -34,7 +34,7 @@ type Props = {
   onFollow?: (t: Tweet) => void
   onCopyLink?: (t: Tweet) => void
   onCopyText?: (t: Tweet) => void
-  onMedia?: (t: Tweet) => void
+  onMedia?: (t: Tweet, photoIndex?: number) => void
 }
 
 /**
@@ -198,6 +198,7 @@ export function TweetList({
               tweet={t}
               isFocused={i === focused}
               onOpen={onOpen}
+              onMedia={onMedia}
               onProfile={onProfile}
             />
           </Box>

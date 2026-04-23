@@ -8,11 +8,12 @@
  */
 
 const CHUNK_SIZE = 4096
+const ESC = '\x1b'
 
 function maybeTmuxWrap(body: string): string {
   if (process.env.TMUX) {
-    const escaped = body.replace(/\x1b/g, '\x1b\x1b')
-    return `\x1bPtmux;\x1b${escaped}\x1b\\`
+    const escaped = body.replaceAll(ESC, `${ESC}${ESC}`)
+    return `${ESC}Ptmux;${ESC}${escaped}${ESC}\\`
   }
   return body
 }
@@ -22,7 +23,7 @@ export function encodeKitty(
   opts: { widthCells?: number; heightCells?: number } = {},
 ): string {
   const base64 = Buffer.from(pngBytes).toString('base64')
-  const head: string[] = ['a=T', 'f=100']
+  const head: string[] = ['a=T', 'f=100', 'q=2', 'C=1']
   if (opts.widthCells) head.push(`c=${opts.widthCells}`)
   if (opts.heightCells) head.push(`r=${opts.heightCells}`)
 
@@ -45,4 +46,11 @@ export function encodeKitty(
     }
   }
   return maybeTmuxWrap(parts.join(''))
+}
+
+export function deleteKittyPlacementAtCell(opts: {
+  row: number
+  col: number
+}): string {
+  return maybeTmuxWrap(`\x1b_Ga=d,d=P,x=${opts.col},y=${opts.row},q=2\x1b\\`)
 }

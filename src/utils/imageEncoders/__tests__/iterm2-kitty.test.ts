@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { encodeITerm2 } from '../iterm2.js'
-import { encodeKitty } from '../kitty.js'
+import { deleteKittyPlacementAtCell, encodeKitty } from '../kitty.js'
 
 const PNG_1PX = new Uint8Array([
   0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
@@ -43,6 +43,8 @@ describe('encodeKitty', () => {
     expect(out.endsWith('\x1b\\')).toBe(true)
     expect(out).toContain('a=T')
     expect(out).toContain('f=100')
+    expect(out).toContain('q=2')
+    expect(out).toContain('C=1')
   })
 
   test('chunks large payloads with m=1 continuations ending in m=0', () => {
@@ -61,5 +63,11 @@ describe('encodeKitty', () => {
     const out = encodeKitty(PNG_1PX, { widthCells: 40, heightCells: 20 })
     expect(out).toContain('c=40')
     expect(out).toContain('r=20')
+  })
+
+  test('builds a placement delete command at a specific cell', () => {
+    expect(deleteKittyPlacementAtCell({ row: 3, col: 5 })).toBe(
+      '\x1b_Ga=d,d=P,x=5,y=3,q=2\x1b\\',
+    )
   })
 })

@@ -29,7 +29,7 @@ export function makeTweetActions(mutate: MutateTweet): {
   onQuote: (t: Tweet) => void
   onCopyLink: (t: Tweet) => void
   onCopyText: (t: Tweet) => void
-  onMedia: (t: Tweet) => void
+  onMedia: (t: Tweet, photoIndex?: number) => void
   onProfile: (handle: string) => void
   onOpen: (t: Tweet) => void
 } {
@@ -63,13 +63,14 @@ export function makeTweetActions(mutate: MutateTweet): {
         kind: 'compose',
         mode: { kind: 'quote', quoted: { id: t.id, text: t.text, author: t.author.screenName } },
       }),
-    onMedia: (t: Tweet) => {
+    onMedia: (t: Tweet, photoIndex = 0) => {
       const urls = (t.media ?? []).filter(m => m.type === 'photo').map(m => m.url)
       if (urls.length === 0) {
         showToast('info', 'No photos on this tweet.')
         return
       }
-      push({ kind: 'imageViewer', urls, index: 0, tweetId: t.id })
+      const index = Math.max(0, Math.min(photoIndex, urls.length - 1))
+      push({ kind: 'imageViewer', urls, index, tweetId: t.id })
     },
     onCopyLink: (t: Tweet) => {
       const url = tweetUrl(t)

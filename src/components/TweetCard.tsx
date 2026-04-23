@@ -11,6 +11,7 @@ type Props = {
   tweet: Tweet | undefined | null
   isFocused?: boolean
   onOpen?: (t: Tweet) => void
+  onMedia?: (t: Tweet, photoIndex?: number) => void
   onProfile?: (screenName: string) => void
 }
 
@@ -50,7 +51,7 @@ function MetricsRow({ tweet }: { tweet: Tweet }): React.ReactNode {
  *   hover (mouse)        → subtle left accent
  *   otherwise            → transparent left accent (still reserves width for stable layout)
  */
-export function TweetCard({ tweet, isFocused, onOpen, onProfile }: Props): React.ReactNode {
+export function TweetCard({ tweet, isFocused, onOpen, onMedia, onProfile }: Props): React.ReactNode {
   const [hovered, setHovered] = useState(false)
   if (!tweet || !tweet.author) {
     // Defensive: listCache / detail fetches sometimes hand us partial entries
@@ -86,7 +87,14 @@ export function TweetCard({ tweet, isFocused, onOpen, onProfile }: Props): React
         <Box marginTop={0}>
           <TweetText text={tweet.text} onMention={onProfile} />
         </Box>
-        {tweet.media?.length ? <MediaThumbs media={tweet.media} /> : null}
+        {tweet.media?.length ? (
+          <MediaThumbs
+            media={tweet.media}
+            onOpen={photoIndex => {
+              onMedia?.(tweet, photoIndex)
+            }}
+          />
+        ) : null}
         <Box marginTop={0}>
           <MetricsRow tweet={tweet} />
         </Box>
