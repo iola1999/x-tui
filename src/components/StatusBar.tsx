@@ -1,4 +1,4 @@
-import React from 'react'
+import type React from 'react'
 import { Box, Text, useKeybindingContext } from '@anthropic/ink'
 import { currentScreen, type Screen, useStore } from '../state/store.js'
 import { TW_BLUE, TW_DIM, TW_SUBTLE } from '../theme/twitterTheme.js'
@@ -67,7 +67,7 @@ type Keystroke = {
 export function formatPendingChord(chord: Keystroke[] | null): string | null {
   if (!chord || chord.length === 0) return null
   return (
-    chord
+    `${chord
       .map(k => {
         const mods: string[] = []
         if (k.ctrl) mods.push('Ctrl')
@@ -77,20 +77,16 @@ export function formatPendingChord(chord: Keystroke[] | null): string | null {
         const label = k.key === ' ' ? 'Space' : k.key
         return mods.length ? `${mods.join('+')}+${label}` : label
       })
-      .join(' ') + '…'
+      .join(' ')}…`
   )
 }
 
 export function StatusBar(): React.ReactNode {
   const toast = useStore(s => s.toasts.at(-1) ?? null)
-  // Re-render on screen changes so hints follow the top of the stack.
-  useStore(s => s.stacks[s.activeTab].length)
-  useStore(s => s.activeTab)
+  const screen = useStore(currentScreen)
 
   const { pendingChord } = useKeybindingContext()
   const chordHint = formatPendingChord(pendingChord)
-
-  const screen = currentScreen()
   const label = screenLabelFor(screen)
   const hints = screenHintsFor(screen)
 

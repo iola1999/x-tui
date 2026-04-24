@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'bun:test'
 import {
   buildNativeImageClearSequence,
+  fitImageCellsIntoBox,
   fitNativeImageBox,
   measureNativeImagePlacement,
   measureNativeImageCellOrigin,
-  runAfterInkRender,
+  runAfterInkRenderForElement,
   resolveNativeImageProtocol,
   resolveImageViewerMode,
+  shouldReuseNativeImagePaint,
 } from '../imageViewerNative.js'
 
 describe('resolveImageViewerMode', () => {
@@ -60,6 +62,36 @@ describe('fitNativeImageBox', () => {
   })
 })
 
+describe('fitImageCellsIntoBox', () => {
+  it('preserves portrait aspect ratio inside a fixed thumbnail box', () => {
+    expect(
+      fitImageCellsIntoBox({
+        maxCols: 16,
+        maxRows: 8,
+        imageWidth: 900,
+        imageHeight: 1600,
+      }),
+    ).toEqual({
+      widthCells: 9,
+      heightCells: 8,
+    })
+  })
+
+  it('preserves landscape aspect ratio inside a fixed thumbnail box', () => {
+    expect(
+      fitImageCellsIntoBox({
+        maxCols: 16,
+        maxRows: 8,
+        imageWidth: 1600,
+        imageHeight: 900,
+      }),
+    ).toEqual({
+      widthCells: 16,
+      heightCells: 5,
+    })
+  })
+})
+
 describe('measureNativeImageCellOrigin', () => {
   it('walks parent layout offsets and subtracts scroll containers', () => {
     const leaf = {
@@ -84,6 +116,26 @@ describe('measureNativeImageCellOrigin', () => {
     }
 
     expect(measureNativeImageCellOrigin(leaf as never)).toEqual({ row: 14, col: 16 })
+  })
+
+  it('uses rendered scroll offset for origin measurement during virtual scroll clamp', () => {
+    const leaf = {
+      yogaNode: {
+        getComputedTop: () => 4,
+        getComputedLeft: () => 6,
+      },
+      parentNode: {
+        yogaNode: {
+          getComputedTop: () => 10,
+          getComputedLeft: () => 8,
+        },
+        scrollTop: 50,
+        renderedScrollTop: 3,
+        parentNode: undefined,
+      },
+    }
+
+    expect(measureNativeImageCellOrigin(leaf as never)).toEqual({ row: 12, col: 15 })
   })
 })
 
@@ -125,6 +177,32 @@ describe('measureNativeImagePlacement', () => {
           getComputedLeft: () => 1,
         },
         scrollTop: 10,
+        parentNode: undefined,
+      },
+    }
+
+    expect(measureNativeImagePlacement(leaf as never, 24)).toEqual({
+      row: 13,
+      col: 6,
+      height: 8,
+      visible: true,
+    })
+  })
+
+  it('uses the rendered scroll offset when virtual scroll clamps the visual frame', () => {
+    const leaf = {
+      yogaNode: {
+        getComputedTop: () => 20,
+        getComputedLeft: () => 4,
+        getComputedHeight: () => 8,
+      },
+      parentNode: {
+        yogaNode: {
+          getComputedTop: () => 2,
+          getComputedLeft: () => 1,
+        },
+        scrollTop: 100,
+        renderedScrollTop: 10,
         parentNode: undefined,
       },
     }
@@ -211,18 +289,99 @@ describe('buildNativeImageClearSequence', () => {
   })
 })
 
-describe('runAfterInkRender', () => {
-  it('waits one extra microtask so ScrollBox can apply its queued render first', async () => {
-    let calls = 0
+describe('shouldReuseNativeImagePaint', () => {
+  it('reuses an existing paint when protocol, key, size, and position match', () => {
+    expect(
+      shouldReuseNativeImagePaint(
+        {
+          protocol: 'kitty',
+          paintKey: 'img:a',
+          row: 5,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+        {
+          protocol: 'kitty',
+          paintKey: 'img:a',
+          row: 5,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+      ),
+    ).toBe(true)
+  })
 
-    runAfterInkRender(() => {
-      calls += 1
+  it('forces a redraw when any of the placement identity changes', () => {
+    expect(
+      shouldReuseNativeImagePaint(
+        {
+          protocol: 'kitty',
+          paintKey: 'img:a',
+          row: 5,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+        {
+          protocol: 'kitty',
+          paintKey: 'img:b',
+          row: 5,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+      ),
+    ).toBe(false)
+    expect(
+      shouldReuseNativeImagePaint(
+        {
+          protocol: 'kitty',
+          paintKey: 'img:a',
+          row: 5,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+        {
+          protocol: 'kitty',
+          paintKey: 'img:a',
+          row: 6,
+          col: 3,
+          widthCells: 16,
+          heightCells: 8,
+        },
+      ),
+    ).toBe(false)
+  })
+})
+
+describe('runAfterInkRenderForElement', () => {
+  it('registers native image draws to run after Ink writes the text frame', () => {
+    let calls = 0
+    const root: {
+      nodeName: string
+      onRender: () => void
+      afterRenderCallbacks?: Set<() => void>
+    } = {
+      nodeName: 'ink-root',
+      onRender: () => {
+        calls += 1
+      },
+    }
+    const leaf = {
+      nodeName: 'ink-box',
+      parentNode: root,
+    }
+
+    runAfterInkRenderForElement(leaf as never, () => {
+      calls += 10
     })
 
-    await Promise.resolve()
-    expect(calls).toBe(0)
-
-    await Promise.resolve()
     expect(calls).toBe(1)
+    expect(root.afterRenderCallbacks?.size).toBe(1)
+    for (const callback of root.afterRenderCallbacks ?? []) callback()
+    expect(calls).toBe(11)
   })
 })

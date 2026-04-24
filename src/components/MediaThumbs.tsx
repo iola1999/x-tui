@@ -1,6 +1,7 @@
 import type React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { Box, RawAnsi, Text } from '@anthropic/ink'
+import sharp from 'sharp'
 import type { Media } from '../types/tweet.js'
 import { getMediaBuffer } from '../services/mediaCache.js'
 import { renderHalfblock } from '../utils/imageEncoders/halfblock.js'
@@ -9,6 +10,7 @@ import { NativeImageBox } from './NativeImageBox.js'
 import { TW_DIM } from '../theme/twitterTheme.js'
 import {
   buildNativeImageSequence,
+  fitImageCellsIntoBox,
   resolveNativeImageProtocol,
   resolveImageViewerMode,
 } from '../screens/imageViewerNative.js'
@@ -25,8 +27,8 @@ type Encoded =
   | null
 
 const MAX_THUMBS = 4
-const THUMB_WIDTH = 16
-const THUMB_HEIGHT = 8
+const THUMB_MAX_WIDTH = 16
+const THUMB_MAX_HEIGHT = 8
 
 /**
  * Inline thumbnails for a tweet's media.
@@ -61,30 +63,45 @@ export function MediaThumbs({
         const buf = await getMediaBuffer(p.url)
         if (cancelled.current) return
         const imageBytes = new Uint8Array(buf)
-        const enc =
+        const resolved =
           mode === 'native' && nativeProtocol
-            ? {
-                kind: 'native' as const,
-                protocol: nativeProtocol,
-                sequence: await buildNativeImageSequence(nativeProtocol, imageBytes, {
-                  widthCells: THUMB_WIDTH,
-                  heightCells: THUMB_HEIGHT,
-                  name: p.url.split('/').pop(),
-                }),
-                widthCells: THUMB_WIDTH,
-                heightCells: THUMB_HEIGHT,
-              }
+            ? await (async () => {
+                const dims =
+                  p.width && p.height
+                    ? { width: p.width, height: p.height }
+                    : await sharp(imageBytes, { failOn: 'none' }).metadata().then(meta => ({
+                        width: meta.width ?? 1,
+                        height: meta.height ?? 1,
+                      }))
+                const fitted = fitImageCellsIntoBox({
+                  maxCols: THUMB_MAX_WIDTH,
+                  maxRows: THUMB_MAX_HEIGHT,
+                  imageWidth: dims.width,
+                  imageHeight: dims.height,
+                })
+                return {
+                  kind: 'native' as const,
+                  protocol: nativeProtocol,
+                  sequence: await buildNativeImageSequence(nativeProtocol, imageBytes, {
+                    widthCells: fitted.widthCells,
+                    heightCells: fitted.heightCells,
+                    name: p.url.split('/').pop(),
+                  }),
+                  widthCells: fitted.widthCells,
+                  heightCells: fitted.heightCells,
+                }
+              })()
             : {
                 kind: 'ansi' as const,
                 ...(await renderHalfblock(imageBytes, {
-                  cols: THUMB_WIDTH,
-                  maxRows: THUMB_HEIGHT,
+                  cols: THUMB_MAX_WIDTH,
+                  maxRows: THUMB_MAX_HEIGHT,
                 })),
               }
         if (cancelled.current) return
         setEncoded(prev => {
           const next = [...prev]
-          next[i] = enc
+          next[i] = resolved
           return next
         })
       } catch {
@@ -104,7 +121,7 @@ export function MediaThumbs({
         const enc = encoded[i]
         if (!enc) {
           return (
-            <Box key={p.url} width={THUMB_WIDTH} height={THUMB_HEIGHT} flexShrink={0}>
+            <Box key={p.url} width={THUMB_MAX_WIDTH} height={THUMB_MAX_HEIGHT} flexShrink={0}>
               <Text color={TW_DIM}>[loading…]</Text>
             </Box>
           )
@@ -113,7 +130,11 @@ export function MediaThumbs({
           return (
             <Box
               key={p.url}
+              width={THUMB_MAX_WIDTH}
+              height={THUMB_MAX_HEIGHT}
               flexShrink={0}
+              justifyContent="center"
+              alignItems="center"
               onClick={event => {
                 event.stopImmediatePropagation()
                 onOpen?.(i)
@@ -121,6 +142,7 @@ export function MediaThumbs({
             >
               <NativeImageBox
                 protocol={enc.protocol}
+                paintKey={p.url}
                 sequence={enc.sequence}
                 widthCells={enc.widthCells}
                 heightCells={enc.heightCells}
@@ -132,7 +154,12 @@ export function MediaThumbs({
         return (
           <Box
             key={p.url}
+            width={THUMB_MAX_WIDTH}
+            height={THUMB_MAX_HEIGHT}
             flexShrink={0}
+            justifyContent="center"
+            alignItems="center"
+            flexDirection="column"
             onClick={event => {
               event.stopImmediatePropagation()
               onOpen?.(i)
@@ -146,8 +173,8 @@ export function MediaThumbs({
         <Box
           key={m.url}
           flexShrink={0}
-          width={THUMB_WIDTH}
-          height={THUMB_HEIGHT}
+          width={THUMB_MAX_WIDTH}
+          height={THUMB_MAX_HEIGHT}
           borderStyle="single"
           borderColor={TW_DIM}
           justifyContent="center"

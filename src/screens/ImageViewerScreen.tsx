@@ -43,30 +43,22 @@ type Rendered = AnsiRendered | NativeRendered | null
 export function ImageViewerScreen({ urls, index, tweetId }: Props): React.ReactNode {
   useRegisterKeybindingContext('ImageViewer', true)
   const size = useTerminalSize()
-  const [current, setCurrent] = useState(index)
   const [rendered, setRendered] = useState<Rendered>(null)
   const [error, setError] = useState<string | null>(null)
   const protocol = getTerminalCaps().protocol
   const nativeProtocol = resolveNativeImageProtocol(protocol)
   const mode = resolveImageViewerMode(protocol)
+  const current = index
 
   const close = () => {
     pop()
   }
-  const prev = () => setCurrent(c => (c - 1 + urls.length) % urls.length)
-  const next = () => setCurrent(c => (c + 1) % urls.length)
+  const prev = () => updateCurrentImageViewerIndex((current - 1 + urls.length) % urls.length)
+  const next = () => updateCurrentImageViewerIndex((current + 1) % urls.length)
 
   useKeybinding('image:close', close, { context: 'ImageViewer' })
   useKeybinding('image:prev', prev, { context: 'ImageViewer' })
   useKeybinding('image:next', next, { context: 'ImageViewer' })
-
-  useEffect(() => {
-    setCurrent(index)
-  }, [index])
-
-  useEffect(() => {
-    updateCurrentImageViewerIndex(current)
-  }, [current])
 
   useEffect(() => {
     let cancelled = false
@@ -136,6 +128,7 @@ export function ImageViewerScreen({ urls, index, tweetId }: Props): React.ReactN
         ) : rendered.kind === 'native' ? (
           <NativeImageBox
             protocol={rendered.protocol}
+            paintKey={url}
             sequence={rendered.sequence}
             widthCells={rendered.widthCells}
             heightCells={rendered.heightCells}

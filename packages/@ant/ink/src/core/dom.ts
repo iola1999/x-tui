@@ -38,6 +38,8 @@ export type DOMElement = {
   onComputeLayout?: () => void
   onRender?: () => void
   onImmediateRender?: () => void
+  afterRenderCallbacks?: Set<() => void>
+  afterEveryRenderCallbacks?: Set<() => void>
   // Used to skip empty renders during React 19's effect double-invoke in test mode
   hasRenderedContent?: boolean
 
@@ -69,6 +71,7 @@ export type DOMElement = {
   // the clamp releases). Undefined = no clamp (sticky-scroll, cold start).
   scrollClampMin?: number
   scrollClampMax?: number
+  renderedScrollTop?: number
   scrollHeight?: number
   scrollViewportHeight?: number
   scrollViewportTop?: number
@@ -420,6 +423,34 @@ export const scheduleRenderFrom = (node?: DOMNode): void => {
   let cur: DOMNode | undefined = node
   while (cur?.parentNode) cur = cur.parentNode
   if (cur && cur.nodeName !== '#text') (cur as DOMElement).onRender?.()
+}
+
+export const scheduleAfterRenderFrom = (
+  node: DOMNode | undefined,
+  callback: () => void,
+): void => {
+  let cur: DOMNode | undefined = node
+  while (cur?.parentNode) cur = cur.parentNode
+  if (!cur || cur.nodeName === '#text') return
+  const root = cur as DOMElement
+  root.afterRenderCallbacks ??= new Set()
+  root.afterRenderCallbacks.add(callback)
+  root.onRender?.()
+}
+
+export const subscribeAfterEveryRenderFrom = (
+  node: DOMNode | undefined,
+  callback: () => void,
+): (() => void) => {
+  let cur: DOMNode | undefined = node
+  while (cur?.parentNode) cur = cur.parentNode
+  if (!cur || cur.nodeName === '#text') return () => {}
+  const root = cur as DOMElement
+  root.afterEveryRenderCallbacks ??= new Set()
+  root.afterEveryRenderCallbacks.add(callback)
+  return () => {
+    root.afterEveryRenderCallbacks?.delete(callback)
+  }
 }
 
 export const setTextNodeValue = (node: TextNode, text: string): void => {

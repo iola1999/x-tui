@@ -1,5 +1,6 @@
 import autoBind from 'auto-bind'
 import {
+  appendFileSync,
   closeSync,
   constants as fsConstants,
   openSync,
@@ -119,6 +120,27 @@ import { TerminalWriteProvider } from '../hooks/useTerminalNotification.js'
 // which is always false in alt-screen (TTY + content fills screen).
 // Reusing a frozen object saves 1 allocation per frame.
 const ALT_SCREEN_ANCHOR_CURSOR = Object.freeze({ x: 0, y: 0, visible: false })
+const NATIVE_IMAGE_DEBUG_LOG = '/tmp/x-tui-native-images.log'
+
+function nativeImageDebugEnabled(): boolean {
+  const value = process.env.X_TUI_DEBUG_NATIVE_IMAGES?.toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+function debugNativeImageFrame(
+  event: string,
+  details: Record<string, boolean | number | string | undefined>,
+): void {
+  if (!nativeImageDebugEnabled()) return
+  try {
+    appendFileSync(
+      NATIVE_IMAGE_DEBUG_LOG,
+      `${JSON.stringify({ ts: new Date().toISOString(), event, ...details })}\n`,
+    )
+  } catch {
+    // Debug logging must never break rendering.
+  }
+}
 const CURSOR_HOME_PATCH = Object.freeze({
   type: 'stdout' as const,
   content: CURSOR_HOME,
@@ -892,6 +914,39 @@ export default class Ink {
       optimized,
       this.altScreenActive && !SYNC_OUTPUT_SUPPORTED,
     )
+    const afterRenderCallbacks = this.rootNode.afterRenderCallbacks
+    const afterEveryRenderCallbacks = this.rootNode.afterEveryRenderCallbacks
+    debugNativeImageFrame('ink-frame-written', {
+      callbacks: afterRenderCallbacks?.size ?? 0,
+      subscriptions: afterEveryRenderCallbacks?.size ?? 0,
+      terminalRows,
+      terminalWidth,
+      hasDiff,
+      patches: optimized.length,
+      scrollDrainPending: frame.scrollDrainPending,
+    })
+    if (afterRenderCallbacks && afterRenderCallbacks.size > 0) {
+      this.rootNode.afterRenderCallbacks = undefined
+      queueMicrotask(() => {
+        debugNativeImageFrame('ink-after-render-callbacks', {
+          callbacks: afterRenderCallbacks.size,
+          terminalRows,
+          terminalWidth,
+        })
+        for (const callback of afterRenderCallbacks) callback()
+      })
+    }
+    if (afterEveryRenderCallbacks && afterEveryRenderCallbacks.size > 0) {
+      const callbacks = [...afterEveryRenderCallbacks]
+      queueMicrotask(() => {
+        debugNativeImageFrame('ink-after-every-render-callbacks', {
+          callbacks: callbacks.length,
+          terminalRows,
+          terminalWidth,
+        })
+        for (const callback of callbacks) callback()
+      })
+    }
     const writeMs = performance.now() - tWrite
 
     // Update blit safety for the NEXT frame. The frame just rendered

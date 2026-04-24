@@ -854,6 +854,7 @@ function renderNodeToOutput(
         if (scrollTop !== cur) node.pendingScrollDelta = undefined
         if (node.pendingScrollDelta !== undefined) scrollDrainNode = node
         scrollTop = clamped
+        node.renderedScrollTop = scrollTop
 
         if (content && contentYoga) {
           // Compute content wrapper's absolute render position with scroll

@@ -104,6 +104,8 @@ export { default as styles } from './core/styles.js'
 export { clamp } from './core/layout/geometry.js'
 export { getTerminalFocusState, getTerminalFocused, subscribeTerminalFocus } from './core/terminal-focus-state.js'
 export { supportsHyperlinks } from './core/supports-hyperlinks.js'
+export { scheduleAfterRenderFrom, subscribeAfterEveryRenderFrom } from './core/dom.js'
+export { nodeCache } from './core/node-cache.js'
 
 // ============================================================
 // Components (Layer 2)
